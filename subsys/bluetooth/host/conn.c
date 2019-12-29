@@ -2126,6 +2126,31 @@ int bt_conn_create_auto_le(const struct bt_le_conn_param *param)
 		return -EINVAL;
 	}
 
+	if (IS_ENABLED(CONFIG_BT_PRIVACY)) {
+		/* Cannot start initiator if the random address is used by
+		 * by the advertiser for an RPA with a different identity or
+		 * for a random static identity address.
+		 */
+		if (atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    ((atomic_test_bit(bt_dev.flags,
+				      BT_DEV_ADVERTISING_IDENTITY) &&
+		      bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM) ||
+		     (bt_dev.adv_id != BT_ID_DEFAULT))) {
+			return -EINVAL;
+		}
+	} else if (param->type == BT_HCI_LE_SCAN_ACTIVE) {
+		/* Cannot start initiator if the random address is used by
+		 * the advertiser for a different identity.
+		 */
+		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
+		    atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM &&
+		    bt_dev.adv_id != BT_ID_DEFAULT) {
+			return -EINVAL;
+		}
+	}
+
+
 	conn = bt_conn_add_le(BT_ID_DEFAULT, BT_ADDR_LE_NONE);
 	if (!conn) {
 		return -ENOMEM;
@@ -2204,6 +2229,30 @@ struct bt_conn *bt_conn_create_le(const bt_addr_le_t *peer,
 		return NULL;
 	}
 
+	if (IS_ENABLED(CONFIG_BT_PRIVACY)) {
+		/* Cannot start initiator if the random address is used by
+		 * by the advertiser for an RPA with a different identity or
+		 * for a random static identity address.
+		 */
+		if (atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    ((atomic_test_bit(bt_dev.flags,
+				      BT_DEV_ADVERTISING_IDENTITY) &&
+		      bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM) ||
+		     (bt_dev.adv_id != BT_ID_DEFAULT))) {
+			return -EINVAL;
+		}
+	} else if (param->type == BT_HCI_LE_SCAN_ACTIVE) {
+		/* Cannot start initiatorif the random address is used by
+		 * the advertiser for a different identity.
+		 */
+		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
+		    atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM &&
+		    bt_dev.adv_id != BT_ID_DEFAULT) {
+			return -EINVAL;
+		}
+	}
+
 	conn = bt_conn_lookup_addr_le(BT_ID_DEFAULT, peer);
 	if (conn) {
 		/* Connection object already exists.
@@ -2270,6 +2319,30 @@ int bt_le_set_auto_conn(const bt_addr_le_t *addr,
 
 	if (param && !bt_le_conn_params_valid(param)) {
 		return -EINVAL;
+	}
+
+	if (IS_ENABLED(CONFIG_BT_PRIVACY)) {
+		/* Cannot start auto-conn scan if the random address is used by
+		 * by the advertiser for an RPA with a different identity or
+		 * for a random static identity address.
+		 */
+		if (atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    ((atomic_test_bit(bt_dev.flags,
+				      BT_DEV_ADVERTISING_IDENTITY) &&
+		      bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM) ||
+		     (bt_dev.adv_id != BT_ID_DEFAULT))) {
+			return -EINVAL;
+		}
+	} else if (param->type == BT_HCI_LE_SCAN_ACTIVE) {
+		/* Cannot start auto-conn scan if the random address is used by
+		 * the advertiser for a different identity.
+		 */
+		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
+		    atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM &&
+		    bt_dev.adv_id != BT_ID_DEFAULT) {
+			return -EINVAL;
+		}
 	}
 
 	/* Only default identity is supported */

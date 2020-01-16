@@ -591,14 +591,16 @@ void le_update_private_addr(void)
 
 static void rpa_timeout(struct k_work *work)
 {
-	struct bt_conn *conn;
-
 	BT_DBG("");
 
-	conn = bt_conn_lookup_state_le(NULL, BT_CONN_CONNECT_SCAN);
-	if (conn) {
-		bt_conn_unref(conn);
-		bt_le_create_conn_cancel();
+	if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
+		struct bt_conn *conn =
+			bt_conn_lookup_state_le(NULL, BT_CONN_CONNECT_SCAN);
+
+		if (conn) {
+			bt_conn_unref(conn);
+			bt_le_create_conn_cancel();
+		}
 	}
 
 	/* Invalidate RPA */
@@ -631,6 +633,185 @@ static int le_set_private_addr(u8_t id)
 	return set_random_address(&nrpa);
 }
 #endif
+#if 0
+/* Check if the scanner/initiator role can use the random address without
+ * conflicting with the advertiser role.
+ */
+	if (IS_ENABLED(CONFIG_BT_PRIVACY) &&
+	    param->type == BT_HCI_LE_SCAN_ACTIVE) {
+		/* Cannot start active scanner if the random address is used by
+		 * by the advertiser for an RPA with a different identity or
+		 * for a random static identity address.
+		 */
+		if (atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    ((atomic_test_bit(bt_dev.flags,
+				      BT_DEV_ADVERTISING_IDENTITY) &&
+		      bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM) ||
+		     (bt_dev.adv_id != BT_ID_DEFAULT))) {
+			return -EINVAL;
+		}
+	} else if (param->type == BT_HCI_LE_SCAN_ACTIVE) {
+		/* Cannot start active scanner if the random address is used by
+		 * the advertiser for a different identity.
+		 */
+		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
+		    atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
+		    bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM &&
+		    bt_dev.adv_id != BT_ID_DEFAULT) {
+			return -EINVAL;
+		}
+	}
+#endif
+
+bool bt_le_scan_random_addr_check(bool initiator)
+{
+	/* If the advertiser is not enabled or not active there is no issue */
+	if (!IS_ENABLED(CONFIG_BT_BROADCASTER) ||
+	    !atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING)) {
+		return true;
+	}
+
+	if (IS_ENABLED(CONFIG_BT_PRIVACY)) {
+		/* Cannot start scannor or initiator if the random address is
+		 * used by the advertiser for an RPA with a different identity
+		 * or for a random static identity address.
+		 */
+		if ((atomic_test_bit(bt_dev.flags,
+				     BT_DEV_ADVERTISING_IDENTITY) &&
+		     bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM) ||
+		     bt_dev.adv_id != BT_ID_DEFAULT) {
+		     	return false;
+		}
+	} else if (atomic_test_bit(bt_dev.flags,
+				   BT_DEV_ADVERTISING_CONNECTABLE)) {
+		/* Cannot start scanner or initiator if the random address is
+		 * used by the advertiser for a different identity.
+		 */
+		if (bt_dev.adv_id != BT_ID_DEFAULT &&
+		    bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
+		    bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM) {
+			return false;
+		}
+	} else {
+		/* Cannot start scanner or initiator if the advertiser is using
+		 * an NRPA address, when we want to use random static identity.
+		 */
+		if ((IS_ENABLED(BT_SCAN_WITH_IDENTITY) || initiator) &&
+		    bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool bt_le_adv_random_addr_check(bt_le_adv_param *param)
+{
+	/* If scanner roles are not enabled or not active there is no issue.
+	 * Passive scanner does not have an active address, unless it is a
+	 * passive scanner that will start the initiator.
+	 */
+	if (IS_ENABLED(CONFIG_BT_OBSERVER) ||
+	    !(atomic_test_bit(bt_dev.flags, BT_DEV_INITIATING) ||
+	      (atomic_test_bit(bt_dev.flags, BT_DEV_SCANNING) &&
+	       (!atomic_test_bit(bt_dev.flags, BT_DEV_EXPLICIT_SCAN) ||
+		atomic_test_bit(bt_dev.flags, BT_DEV_ACTIVE_SCAN))))) {
+		return true;
+	}
+
+	if (IS_ENABLED(CONFIG_BT_PRIVACY)) {
+		/* Cannot start an advertiser with random static identity or
+		 * using an RPA generated for a different identity than scanner
+		 * roles.
+		 */
+		if (((param->options & BT_LE_ADV_OPT_USE_IDENTITY) &&
+		     bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM) ||
+		    param->id != BT_ID_DEFAULT) {
+			return false;
+		}
+	} else if (param->options & BT_LE_ADV_OPT_CONNECTABLE) {
+		/* Cannot start connectable advertiser with the random static
+		 * identity if the active scanner is using an NRPA address.
+		 */
+		if ((!IS_ENABLED(CONFIG_BT_SCAN_WITH_IDENTITY) &&
+		     atomic_test_bit(BT_DEV_SCANNING) &&
+		     atomic_test_bit(BT_DEV_ACTIVE_SCAN) &&
+		     bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM)
+		{
+			return false;
+		}
+
+		/* Cannot start connectable advertiser with the random static
+		 * identity or using an RPA generated for a different
+		 * identity than the initiator, auto-conn scan, or
+		 * active scanner.
+		 */
+		if (bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM &&
+		    param->id != BT_ID_DEFAULT &&
+		    bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM) {
+			return false;
+		}
+	} else {
+		/* Cannot use random static identity if the scanner is using
+		 * an NRPA.
+		 */
+		if (param->options & BT_LE_ADV_OPT_USE_IDENTITY &&
+		    (!IS_ENABLED(CONFIG_BT_SCAN_WITH_IDENTITY) &&
+		     atomic_test_bit(BT_DEV_SCANNING) &&
+		     atomic_test_bit(BT_DEV_ACTIVE_SCAN) &&
+		     bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM)
+		{
+			return false;
+		}
+
+		if (param->options & BT_LE_ADV_OPT_USE_IDENTITY
+			 bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM) ||
+		    param->id != BT_ID_DEFAULT
+		)
+		/* Cannot start non-connectable advertise with NRPA if the
+		 * scanner roles are using a random static identity.
+		 */
+		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM ||
+		    !(IS_ENABLED(CONFIG_BT_SCAN_WITH_IDENTITY))
+			)
+			param->options & BT_LE_ADV_OPT_USE_IDENTITY
+	}
+
+
+	if (IS_ENABLED(CONFIG_BT_PRIVACY)) {
+		if ((((param->options & BT_LE_ADV_OPT_USE_IDENTITY) &&
+		      bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM) ||
+		     param->id != BT_ID_DEFAULT) &&
+		    (atomic_test_bit(bt_dev.flags, BT_DEV_INITIATING) ||
+		     (atomic_test_bit(bt_dev.flags, BT_DEV_SCANNING) &&
+		      (!atomic_test_bit(bt_dev.flags, BT_DEV_EXPLICIT_SCAN) ||
+		       atomic_test_bit(bt_dev.flags, BT_DEV_ACTIVE_SCAN))))) {
+			/* Cannot start an advertiser with the random static
+			 * identity or using an RPA generated for a different
+			 * identity than the initiator, auto-conn scan, or
+			 * active scanner.
+			 */
+			return false;
+		}
+	} else {
+		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
+		    (atomic_test_bit(bt_dev.flags, BT_DEV_INITIATING) ||
+		     (atomic_test_bit(bt_dev.flags, BT_DEV_SCANNING) &&
+		      (!atomic_test_bit(bt_dev.flags, BT_DEV_EXPLICIT_SCAN) ||
+		       atomic_test_bit(bt_dev.flags, BT_DEV_ACTIVE_SCAN)))) &&
+		    param->id != BT_ID_DEFAULT &&
+		    bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM) {
+			/* Cannot start an advertiser with a different random
+			 * static identity address than the initiator, auto-conn
+			 * scan, or active scanner.
+			 */
+			return false;
+		}
+	}
+
+	return true;
+}
+
 
 #if defined(CONFIG_BT_OBSERVER)
 static int set_le_scan_enable(u8_t enable)
@@ -5850,37 +6031,6 @@ int bt_le_adv_start_internal(const struct bt_le_adv_param *param,
 		return -EALREADY;
 	}
 
-	if (IS_ENABLED(CONFIG_BT_PRIVACY)) {
-		if ((((param->options & BT_LE_ADV_OPT_USE_IDENTITY) &&
-		      bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM) ||
-		     param->id != BT_ID_DEFAULT) &&
-		    (atomic_test_bit(bt_dev.flags, BT_DEV_INITIATING) ||
-		     (atomic_test_bit(bt_dev.flags, BT_DEV_SCANNING) &&
-		      (!atomic_test_bit(bt_dev.flags, BT_DEV_EXPLICIT_SCAN) ||
-		       atomic_test_bit(bt_dev.flags, BT_DEV_ACTIVE_SCAN))))) {
-			/* Cannot start an advertiser with the random static
-			 * identity or using an RPA generated for a different
-			 * identity than the initiator, auto-conn scan, or
-			 * active scanner.
-			 */
-			return -EINVAL;
-		}
-	} else {
-		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
-		    (atomic_test_bit(bt_dev.flags, BT_DEV_INITIATING) ||
-		     (atomic_test_bit(bt_dev.flags, BT_DEV_SCANNING) &&
-		      (!atomic_test_bit(bt_dev.flags, BT_DEV_EXPLICIT_SCAN) ||
-		       atomic_test_bit(bt_dev.flags, BT_DEV_ACTIVE_SCAN)))) &&
-		    param->id != BT_ID_DEFAULT &&
-		    bt_dev.id_addr[param->id].type == BT_ADDR_LE_RANDOM) {
-			/* Cannot start an advertiser with a different random
-			 * static identity address than the initiator, auto-conn
-			 * scan, or active scanner.
-			 */
-			return -EINVAL;
-		}
-	}
-
 	(void)memset(&set_param, 0, sizeof(set_param));
 
 	set_param.min_interval = sys_cpu_to_le16(param->interval_min);
@@ -6182,31 +6332,9 @@ int bt_le_scan_start(const struct bt_le_scan_param *param, bt_le_scan_cb_t cb)
 		return -EINVAL;
 	}
 
-	if (IS_ENABLED(CONFIG_BT_PRIVACY) &&
-	    param->type == BT_HCI_LE_SCAN_ACTIVE) {
-		/* Cannot start active scanner if the random address is used by
-		 * by the advertiser for an RPA with a different identity or
-		 * for a random static identity address.
-		 */
-		if (atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
-		    ((atomic_test_bit(bt_dev.flags,
-				      BT_DEV_ADVERTISING_IDENTITY) &&
-		      bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM) ||
-		     (bt_dev.adv_id != BT_ID_DEFAULT))) {
-			return -EINVAL;
-		}
-	} else if (param->type == BT_HCI_LE_SCAN_ACTIVE) {
-		/* Cannot start active scanner if the random address is used by
-		 * the advertiser for a different identity.
-		 */
-		if (bt_dev.id_addr[BT_ID_DEFAULT].type == BT_ADDR_LE_RANDOM &&
-		    atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING) &&
-		    bt_dev.id_addr[bt_dev.adv_id].type == BT_ADDR_LE_RANDOM &&
-		    bt_dev.adv_id != BT_ID_DEFAULT) {
-			return -EINVAL;
-		}
+	if (param->type && !bt_le_scan_random_addr_check()) {
+		return -EINVAL;
 	}
-
 	/* Return if active scan is already enabled */
 	if (atomic_test_and_set_bit(bt_dev.flags, BT_DEV_EXPLICIT_SCAN)) {
 		return -EALREADY;

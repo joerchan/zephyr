@@ -119,6 +119,10 @@ struct bt_hci_cmd_hdr {
 						BT_LE_FEAT_BIT_PHY_CODED)
 #define BT_FEAT_LE_PRIVACY(feat)                BT_LE_FEAT_TEST(feat, \
 						BT_LE_FEAT_BIT_PRIVACY)
+#define BT_FEAT_LE_ADV_EXT(feat)                BT_LE_FEAT_TEST(feat, \
+                                                BT_LE_FEAT_BIT_ADV_EXT)
+#define BT_FEAT_LE_SCAN_EXT(feat)               BT_LE_FEAT_TEST(feat, \
+						BT_LE_FEAT_BIT_EXT_SCAN)
 
 /* LE States */
 #define BT_LE_STATES_SLAVE_CONN_ADV(states)     (states & 0x0000004000000000)
@@ -590,14 +594,20 @@ struct bt_hci_cp_le_set_random_address {
 	bt_addr_t bdaddr;
 } __packed;
 
-/* Advertising types */
-#define BT_LE_ADV_IND                           0x00
-#define BT_LE_ADV_DIRECT_IND                    0x01
-#define BT_LE_ADV_SCAN_IND                      0x02
-#define BT_LE_ADV_NONCONN_IND                   0x03
-#define BT_LE_ADV_DIRECT_IND_LOW_DUTY           0x04
-/* Needed in advertising reports when getting info about */
-#define BT_LE_ADV_SCAN_RSP                      0x04
+/* LE Advertising Types (LE Advertising Parameters Set)*/
+#define BT_LE_ADV_IND                  __DEPRECATED_MACRO 0x00
+#define BT_LE_ADV_DIRECT_IND           __DEPRECATED_MACRO 0x01
+#define BT_LE_ADV_SCAN_IND             __DEPRECATED_MACRO 0x02
+#define BT_LE_ADV_NONCONN_IND          __DEPRECATED_MACRO 0x03
+#define BT_LE_ADV_DIRECT_IND_LOW_DUTY  __DEPRECATED_MACRO 0x04
+/* LE Advertising PDU Types. */
+#define BT_LE_ADV_SCAN_RSP             __DEPRECATED_MACRO 0x04
+
+#define BT_HCI_ADV_IND                          0x00
+#define BT_HCI_ADV_DIRECT_IND                   0x01
+#define BT_HCI_ADV_SCAN_IND                     0x02
+#define BT_HCI_ADV_NONCONN_IND                  0x03
+#define BT_HCI_ADV_DIRECT_IND_LOW_DUTY          0x04
 
 #define BT_LE_ADV_FP_NO_WHITELIST               0x00
 #define BT_LE_ADV_FP_WHITELIST_SCAN_REQ         0x01
@@ -1135,8 +1145,8 @@ struct bt_hci_cp_le_set_ext_scan_enable {
 
 #define BT_HCI_OP_LE_EXT_CREATE_CONN            BT_OP(BT_OGF_LE, 0x0043)
 struct bt_hci_ext_conn_phy {
-	u16_t interval;
-	u16_t window;
+	u16_t scan_interval;
+	u16_t scan_window;
 	u16_t conn_interval_min;
 	u16_t conn_interval_max;
 	u16_t conn_latency;
@@ -1566,8 +1576,20 @@ struct bt_hci_evt_le_phy_update_complete {
 } __packed;
 
 #define BT_HCI_EVT_LE_EXT_ADVERTISING_REPORT    0x0d
+
+#define BT_HCI_LE_EVT_TYPE_PROP_CONN                 BIT(0)
+#define BT_HCI_LE_EVT_TYPE_PROP_SCAN                 BIT(1)
+#define BT_HCI_LE_EVT_TYPE_PROP_DIRECT               BIT(2)
+#define BT_HCI_LE_EVT_TYPE_PROP_HI_DC_CONN           BIT(3)
+#define BT_HCI_LE_EVT_TYPE_PROP_LEGACY               BIT(4)
+
+#define BT_HCI_LE_EVT_TYPE_DATA_STATUS(ev_type) ((ev_type) >> 5) & 0x03
+#define BT_HCI_LE_EVT_TYPE_DATA_STATUS_COMPLETE   0
+#define BT_HCI_LE_EVT_TYPE_DATA_STATUS_PARTIAL    1
+#define BT_HCI_LE_EVT_TYPE_DATA_STATUS_INCOMPLETE 2
+
 struct bt_hci_evt_le_ext_advertising_info {
-	u8_t         evt_type;
+	u16_t        evt_type;
 	bt_addr_le_t addr;
 	u8_t         prim_phy;
 	u8_t         sec_phy;
@@ -1614,7 +1636,7 @@ struct bt_hci_evt_le_per_adv_sync_lost {
 #define BT_HCI_EVT_LE_SCAN_TIMEOUT              0x11
 
 #define BT_HCI_EVT_LE_ADV_SET_TERMINATED        0x12
-struct bt_hci_evt_le_per_adv_set_terminated {
+struct bt_hci_evt_le_adv_set_terminated {
 	u8_t  status;
 	u8_t  adv_handle;
 	u16_t conn_handle;

@@ -630,6 +630,12 @@ enum {
 	/* Filter using extended filter policies. */
 	BT_LE_SCAN_OPT_FILTER_EXTENDED = BIT(2),
 
+	/* Enable scan on coded PHY (long range).*/
+	BT_LE_SCAN_OPT_CODED = BIT(3),
+
+	/* Disable scan on 1M phy.  */
+	BT_LE_SCAN_OPT_NO_1M = BIT(4),
+
 	BT_LE_SCAN_FILTER_DUPLICATE __deprecated =
 		BT_LE_SCAN_OPT_FILTER_DUPLICATE,
 	BT_LE_SCAN_FILTER_WHITELIST __deprecated =
@@ -664,18 +670,55 @@ struct bt_le_scan_param {
 
 	/** Scan window (N * 0.625 ms) */
 	u16_t window;
+
+	/** Scan timeout (N * 10 ms)
+	 *  Application will be notified by the scan timeout callback.
+	 *  Set zero to disable timeout.
+	 */
+	u16_t timeout;
+
+	/** Scan interval coded (long range) (N * 0.625 MS)
+	 *  Set zero to use same as 1M scanning
+	 */
+	u16_t interval_coded;
+
+	/** Scan window coded (long range) (N * 0.625 MS)
+	 *  Set zero to use same as 1M scanning
+	 */
+	u16_t window_coded;
 };
 
 /** LE advertisement packet information */
 struct bt_le_adv_info {
-	/** Advertiser LE address and type */
+	/** Advertiser LE address and type. */
 	const bt_addr_le_t *addr;
 
-	/** Strength of advertiser signal */
+	/** Directed address. */
+	const bt_addr_le_t *direct_addr;
+
+	/* Advertising Set Identifier. */
+	u8_t sid;
+
+	/** Strength of advertiser signal. */
 	s8_t rssi;
 
-	/** Advertising packet type */
+	/** Transmit power of the advertiser. */
+	s8_t tx_power;
+
+	/** Advertising packet type. */
 	u8_t adv_type;
+
+	/** Advertising packet properties. */
+	u16_t adv_props;
+
+	/* Primary advertising channel PHY. */
+	u8_t primary_phy;
+
+	/* Secondary advertising channel PHY. */
+	u8_t secondary_phy;
+
+	/* Periodic advertising interval of Periodic Advertiser. */
+	u16_t per_interval;
 };
 
 /** Listener context for (LE) scanning. */
@@ -688,6 +731,9 @@ struct bt_le_scan_cb {
 	 */
 	void (*recv)(const struct bt_le_adv_info *info,
 		     struct net_buf_simple *buf);
+
+	/** @brief The scanner has stopped scanning after scan timeout. */
+	void (*timeout)(void);
 
 	sys_snode_t node;
 };
@@ -706,6 +752,9 @@ struct bt_le_scan_cb {
 			.options = (_options), \
 			.interval = (_interval), \
 			.window = (_window), \
+			.timeout = 0, \
+			.interval_coded = 0, \
+			.window_coded = 0, \
 		 } })
 
 /** Helper macro to enable active scanning to discover new devices. */

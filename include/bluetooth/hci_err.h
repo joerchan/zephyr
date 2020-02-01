@@ -48,6 +48,7 @@ extern "C" {
 #define BT_HCI_ERR_INSTANT_PASSED               0x28
 #define BT_HCI_ERR_PAIRING_NOT_SUPPORTED        0x29
 #define BT_HCI_ERR_DIFF_TRANS_COLLISION         0x2a
+#define BT_HCE_ERR_OUT_OF_MANDATORY_RANGE       0x30
 #define BT_HCI_ERR_UNACCEPT_CONN_PARAM          0x3b
 #define BT_HCI_ERR_ADV_TIMEOUT                  0x3c
 #define BT_HCI_ERR_TERM_DUE_TO_MIC_FAIL         0x3d

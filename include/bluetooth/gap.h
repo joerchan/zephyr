@@ -69,6 +69,30 @@ extern "C" {
 #define BT_GAP_INIT_CONN_INT_MIN                0x0018  /* 30 ms    */
 #define BT_GAP_INIT_CONN_INT_MAX                0x0028  /* 50 ms    */
 
+/* LE PHY types */
+#define BT_GAP_LE_PHY_1M                        0x01
+#define BT_GAP_LE_PHY_2M                        0x02
+#define BT_GAP_LE_PHY_CODED                     0x03
+
+/* Advertising PDU types */
+#define BT_GAP_ADV_TYPE_ADV_IND                 0x00
+#define BT_GAP_ADV_TYPE_ADV_DIRECT_IND          0x01
+#define BT_GAP_ADV_TYPE_ADV_SCAN_IND            0x02
+#define BT_GAP_ADV_TYPE_ADV_NONCONN_IND         0x03
+#define BT_GAP_ADV_TYPE_SCAN_RSP                0x04
+
+/* Advertising PDU properties */
+#define BT_GAP_ADV_PROP_CONNECTABLE             BIT(0)
+#define BT_GAP_ADV_PROP_SCANNABLE               BIT(1)
+#define BT_GAP_ADV_PROP_DIRECTED                BIT(2)
+#define BT_GAP_ADV_PROP_SCAN_REPONSE            BIT(3)
+#define BT_GAP_ADV_PROP_LEGACY                  BIT(4)
+
+#define BT_GAP_TX_POWER_INVALID                 0x7f
+#define BT_GAP_RSSI_INVALID                     0x7f
+#define BT_GAP_SID_INVALID                      0xff
+#define BT_GAP_NO_TIMEOUT                       0x0000
+
 #ifdef __cplusplus
 }
 #endif

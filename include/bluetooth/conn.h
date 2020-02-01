@@ -277,6 +277,50 @@ int bt_conn_le_param_update(struct bt_conn *conn,
  */
 int bt_conn_disconnect(struct bt_conn *conn, u8_t reason);
 
+enum {
+	/** Convenience value when no options are specified. */
+	BT_LE_CONN_OPT_NONE = 0,
+
+	/* Enable scan on coded PHY, accept starting connection on CODED */
+	BT_LE_CONN_OPT_CODED = BIT(0),
+
+	/* Accept starting connection on 2M */
+	BT_LE_CONN_OPT_2M = BIT(1),
+
+	/* Disable scan on 1M PHY, disable starting connection on 1M. */
+	BT_LE_CONN_OPT_NO_1M = BIT(2),
+};
+
+struct bt_conn_scan_param {
+
+	/** Bit-field of scanning options. */
+	u32_t options;
+
+	/** Scan interval (N * 0.625 ms) */
+	u16_t interval;
+
+	/** Scan window (N * 0.625 ms) */
+	u16_t window;
+
+	/** Scan interval coded (long range) (N * 0.625 MS)
+	 *  Set zero to use same as 1M scanning
+	 */
+	u16_t interval_coded;
+
+	/** Scan window coded (long range) (N * 0.625 MS)
+	 *  Set zero to use same as 1M scanning
+	 */
+	u16_t window_coded;
+};
+
+/* @brief Set scan parameters used when initiating an LE Connection.
+ *
+ *  @param param Scan parameters
+ *
+ *  @return Zero on success or (negative) error code on failure.
+ */
+int bt_conn_set_scan_params(const struct bt_conn_scan_param *param);
+
 /** @brief Initiate an LE connection to a remote device.
  *
  *  Allows initiate new LE link to remote peer using its address.

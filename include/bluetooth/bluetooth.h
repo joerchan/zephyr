@@ -45,6 +45,58 @@ extern "C" {
  */
 #define BT_ID_DEFAULT 0
 
+/** Opaque type representing a connection to a remote device */
+struct bt_adv;
+
+/* Don't require everyone to include conn.h */
+struct bt_conn;
+
+struct bt_le_adv_cb {
+	/** @brief The advertising set has finished sending adv data.
+	 *
+	 *  This callback notifies the application that the advertising set has
+	 *  finished sending advertising data.
+	 *  The advertising set can either have been stopped by a timeout or
+	 *  because because the specified number of advertising intervals has
+	 *  been reached.
+	 *
+	 *  @param adv The advertising set object.
+	 *  @param num_sent The number of advertising events completed.
+	 */
+	void (*sent)(struct bt_adv *adv, u8_t num_sent);
+
+	/** @brief The advertising set has accepted a new connection.
+	 *
+	 *  This callback notifies the application that the advertising set has
+	 *  accepted a new connection.
+	 *
+	 *  @param adv The advertising set object.
+	 *  @param num_sent The new connection object.
+	 */
+	void (*connected)(struct bt_adv *adv, struct bt_conn *conn);
+
+	/** @brief The advertising set has been scanned.
+	 *
+	 *  This callback notifies the application that the advertising set has
+	 *  been scanned by an active scanner.
+	 *
+	 *  @param adv The advertising set object.
+	 *  @param addr The Bluetooth device address of the active scanner.
+	 */
+	void (*scanned)(struct bt_adv *adv, bt_addr_le_t *addr);
+
+	sys_snode_t node;
+};
+
+/** @brief Register advertiser callbacks.
+ *
+ *  Adds the callback structure to the list of callback structures that monitors
+ *  advertiser activity.
+ *
+ *  @param cb Callback struct. Must point to static memory.
+ */
+void bt_le_adv_cb_register(struct bt_le_adv_cb *cb);
+
 /**
  * @typedef bt_ready_cb_t
  * @brief Callback for notifying that Bluetooth has been enabled.
@@ -297,6 +349,28 @@ enum {
 
 	/** Use whitelist to filter devices that can connect. */
 	BT_LE_ADV_OPT_FILTER_CONN = BIT(7),
+
+	/* Generate scan reports when advertiser was scanned by active scanner.
+	 */
+	BT_LE_ADV_OPT_SCAN_REPORTS = BIT(8),
+
+	/* Support scan response. */
+	BT_LE_ADV_OPT_SCANNABLE = BIT(9),
+
+	/** Advertise with extended data length. */
+	BT_LE_ADV_OPT_EXT_DATA = BIT(10),
+
+	/* Primary Advertising on coded PHY */
+	BT_LE_ADV_OPT_EXT_DATA_NO_2M = BIT(11),
+
+	/* Secondary Advertising on coded PHY. */
+	BT_LE_ADV_OPT_LONG_RANGE = BIT(12),
+
+	/* Advertise without a device address (identity or RPA). */
+	BT_LE_ADV_OPT_ANONYMOUS = BIT(13),
+
+	/* Advertise with transmit power. */
+	BT_LE_ADV_OPT_USE_TX_POWER = BIT(14),
 };
 
 /** LE Advertising Parameters. */
@@ -304,14 +378,17 @@ struct bt_le_adv_param {
 	/** Local identity */
 	u8_t  id;
 
+	/** Advertising Set Identifier. */
+	u8_t  sid;
+
 	/** Bit-field of advertising options */
-	u8_t  options;
+	u32_t  options;
 
 	/** Minimum Advertising Interval (N * 0.625) */
-	u16_t interval_min;
+	u32_t interval_min;
 
 	/** Maximum Advertising Interval (N * 0.625) */
-	u16_t interval_max;
+	u32_t interval_max;
 };
 
 /** Helper to declare advertising parameters inline
@@ -397,6 +474,134 @@ int bt_le_adv_update_data(const struct bt_data *ad, size_t ad_len,
  *  @return Zero on success or (negative) error code otherwise.
  */
 int bt_le_adv_stop(void);
+
+/** @brief Increment an advertising set`s reference count.
+ *
+ *  Increment the reference count of an advertising set object.
+ *
+ *  @param adv Advertising set object.
+ *
+ *  @return Advertising set object with incremented reference count.
+ */
+struct bt_adv *bt_adv_ref(struct bt_adv *adv);
+
+/** @brief Decrement an advertising set's reference count.
+ *
+ *  Decrement the reference count of an advertising setobject.
+ *
+ *  @param adv Advertising set object.
+ */
+void bt_adv_unref(struct bt_adv *adv);
+
+/** @brief Create advertising set.
+ *
+ *  Create a new advertising set and set advertising parameters.
+ *
+ *  @param param Advertising parameters.
+ *
+ *  @return Zero on success or (negative) error code otherwise.
+ *  @return -ECONNREFUSED When connectable advertising is requested and there
+ *			  is already maximum number of connections established.
+ *			  This error code is only guaranteed when using Zephyr
+ *			  controller, for other controllers code returned in
+ *			  this case may be -EIO.
+ */
+struct bt_adv *bt_le_adv_set_create(const struct bt_le_adv_param *param);
+
+/** Start advertising with the given advertising set
+ *
+ *  Start advertising with a specific advertising set.
+ *  If both timeout and advertising event limit is given then the advertising
+ *  set will be stopped once one of them is reached.
+ *
+ *  @param adv         Advertising set object.
+ *  @param timeout     Advertiser timeout (N * 10 ms), Application will be
+ *                     notified by the advertiser sent callback. Set to zero
+ *                     for no timeout.
+ *  @param num_events  Number of advertising events. Application will be
+ *                     notified by the advertiser sent callback. If used
+ *                     together with timeout then whichever happens first will
+ *                     stop the advertiser. Set to zero for no limit.
+ */
+int bt_le_adv_set_start(struct bt_adv *adv, u16_t timeout, u8_t num_events);
+
+/** Stop advertising with the given advertising set
+ *
+ *  Stop advertising with a specific advertising set.
+ *
+ *  @param adv Advertising set object.
+ *
+ *  @return Zero on success or (negative) error code otherwise.
+ */
+int bt_le_adv_set_stop(struct bt_adv *adv);
+
+/** Set advertising set advertising or scan response data.
+ *
+ *  Set advertisement data or scan response data. If the advertising set is
+ *  currently advertising then the advertising data will be updated in
+ *  subsequent advertising events.
+ *
+ *  If the advertising set has been configured with Primary advertising then the
+ *  maximum data length is 31 bytes. If the advertising set has been configured
+ *  for extended advertising data length, then the maximum data length defined
+ *  by the controller.
+ *
+ *  NOTE: Not all scanners support extended data length advertising data.
+ *
+ *  @param adv     Advertising set object.
+ *  @param ad      Data to be used in advertisement packets.
+ *  @param ad_len  Number of elements in ad
+ *  @param sd      Data to be used in scan response packets.
+ *  @param sd_len  Number of elements in sd
+ *
+ *  @return Zero on success or (negative) error code otherwise.
+ */
+int bt_le_adv_set_data(struct bt_adv *adv,
+		       const struct bt_data *ad, size_t ad_len,
+		       const struct bt_data *sd, size_t sd_len);
+
+/** Delete advertising set.
+ *
+ *  Delete advertising set. This will free up the advertising set and make it
+ *  possible to create a new advertising set.
+ *
+ *  @return Zero on success or (negative) error code otherwise.
+ */
+int bt_le_adv_set_delete(struct bt_adv *adv);
+
+/** @brief Get array index of an advertising set.
+ *
+ *  This function is used to map bt_adv to index of an array of
+ *  advertising sets. The array has CONFIG_BT_MAX_ADV_SET elements.
+ *
+ *  @param adv Advertising set.
+ *
+ *  @return Index of the advertising set object.
+ *  The range of the returned value is 0..CONFIG_BT_MAX_ADV_SET-1
+ */
+u8_t bt_adv_set_index(struct bt_adv *adv);
+
+/** @brief Advertising set info structure. */
+struct bt_adv_info {
+
+	/* Local identity */
+	u8_t                    id;
+
+	/** Local device address used during undirected advertising. */
+	bt_addr_le_t		*addr;
+
+	/** Currently selected Transmit Power (dBM). */
+	s8_t                     tx_power;
+};
+
+/** @brief Get advertising set info
+ *
+ *  @param adv Advertising set object
+ *  @param info Advertising set info object
+ *
+ *  @return Zero on success or (negative) error code on failure.
+ */
+int bt_adv_set_get_info(const struct bt_adv *adv, struct bt_adv_info *info);
 
 /** @typedef bt_le_scan_cb_t
  *  @brief Callback type for reporting LE scan results.

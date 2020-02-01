@@ -83,6 +83,42 @@ config BT_BROADCASTER
 
 endmenu
 
+config BT_ADV_EXT
+	bool "Extended Advertising and Scanning support"
+	help
+	  Select this to enable Extended advertising API support.
+	  This enable multiple advertising sets with extended advertising
+	  data and advertising with long range suppert.
+	  Enables extended scanner with support for receiving extended
+	  advertising data and scanning with long support.
+	  Enables the ability create connection using the long range feature.
+
+if BT_ADV_EXT
+config BT_ADV_EXT_LEGACY_SUPPORT
+	bool "Support starting advertising through legacy commands"
+	help
+	  Select this to enable the use of the Legacy Advertising HCI commands.
+	  This option should be used where the capabalities of the controller
+	  is not known.
+
+config BT_ADV_EXT_LEGACY_ONLY
+	bool "Support only legacy advertising"
+	help
+	  Select this to use Extended Advertising HCI commands but only to start
+	  legacy advertiser. This option can be used when the Extended
+	  Advertising feature is not used but using the Extended Advertising HCI
+	  commands is still needed.
+
+config BT_MAX_ADV
+	int "Maximum number of simultaneous advertising sets"
+	range 1 1
+	default 1
+	help
+	  Maximum number of simultaneous Bluetooth advertising sets
+	  supported.
+
+endif # BT_ADV_EXT
+
 menu "Observer"
 	visible if !BT_CENTRAL
 

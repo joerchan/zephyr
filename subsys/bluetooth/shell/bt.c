@@ -658,6 +658,10 @@ static int cmd_scan(const struct shell *shell, size_t argc, char *argv[])
 			options &= ~BT_LE_SCAN_OPT_FILTER_DUPLICATE;
 		} else if (!strcmp(arg, "wl")) {
 			options |= BT_LE_SCAN_OPT_FILTER_WHITELIST;
+		} else if (!strcmp(arg, "coded")) {
+			options |= BT_LE_SCAN_OPT_CODED;
+		} else if (!strcmp(arg, "no1m")) {
+			options |= BT_LE_SCAN_OPT_NO_1M;
 		} else {
 			shell_help(shell);
 			return SHELL_CMD_HELP_PRINTED;
@@ -1031,6 +1035,35 @@ static int cmd_connect_le(const struct shell *shell, size_t argc, char *argv[])
 		shell_error(shell, "Invalid peer address (err %d)", err);
 		return err;
 	}
+
+#if defined(CONFIG_BT_ADV_EXT)
+	u32_t options = 0;
+
+	for (size_t argn = 3; argn < argc; argn++) {
+		const char *arg = argv[argn];
+
+		if (!strcmp(arg, "coded")) {
+			options |= BT_LE_CONN_OPT_CODED;
+		} else if (!strcmp(arg, "2m")) {
+			options |= BT_LE_CONN_OPT_2M;
+		} else if (!strcmp(arg, "no1m")) {
+			options |= BT_LE_CONN_OPT_NO_1M;
+		} else {
+			shell_help(shell);
+			return SHELL_CMD_HELP_PRINTED;
+		}
+	}
+
+	struct bt_conn_scan_param conn_scan_params = {
+		.options = options,
+		.interval = BT_GAP_SCAN_FAST_INTERVAL,
+		.window = BT_GAP_SCAN_FAST_WINDOW,
+		.interval_coded = 0,
+		.window_coded = 0,
+	};
+
+	bt_conn_set_scan_params(&conn_scan_params);
+#endif /* defined(CONFIG_BT_ADV_EXT) */
 
 	conn = bt_conn_create_le(&addr, BT_LE_CONN_PARAM_DEFAULT);
 
@@ -1936,6 +1969,35 @@ static int cmd_wl_connect(const struct shell *shell, size_t argc, char *argv[])
 	int err;
 	const char *action = argv[1];
 
+#if defined(CONFIG_BT_ADV_EXT)
+	u32_t options = 0;
+
+	for (size_t argn = 2; argn < argc; argn++) {
+		const char *arg = argv[argn];
+
+		if (!strcmp(arg, "coded")) {
+			options |= BT_LE_CONN_OPT_CODED;
+		} else if (!strcmp(arg, "2m")) {
+			options |= BT_LE_CONN_OPT_2M;
+		} else if (!strcmp(arg, "no1m")) {
+			options |= BT_LE_CONN_OPT_NO_1M;
+		} else {
+			shell_help(shell);
+			return SHELL_CMD_HELP_PRINTED;
+		}
+	}
+
+	struct bt_conn_scan_param conn_scan_params = {
+		.options = options,
+		.interval = BT_GAP_SCAN_FAST_INTERVAL,
+		.window = BT_GAP_SCAN_FAST_WINDOW,
+		.interval_coded = 0,
+		.window_coded = 0,
+	};
+
+	bt_conn_set_scan_params(&conn_scan_params);
+#endif /* defined(CONFIG_BT_ADV_EXT) */
+
 	if (!strcmp(action, "on")) {
 		err = bt_conn_create_auto_le(BT_LE_CONN_PARAM_DEFAULT);
 
@@ -2010,6 +2072,14 @@ static int cmd_auth_passkey(const struct shell *shell,
 #define HELP_NONE "[none]"
 #define HELP_ADDR_LE "<address: XX:XX:XX:XX:XX:XX> <type: (public|random)>"
 
+#if defined(CONFIG_BT_ADV_EXT)
+#define ADV_EXT_SCAN_OPT " [coded] [no1m]"
+#define ADV_EXT_CONN_OPT " [coded] [2m] [no1m]"
+#else
+#define ADV_EXT_SCAN_OPT ""
+#define ADV_EXT_CONN_OPT ""
+#endif /* defined(CONFIG_BT_ADV_EXT) */
+
 SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(init, NULL, HELP_ADDR_LE, cmd_init, 1, 0),
 #if defined(CONFIG_BT_HCI)
@@ -2023,8 +2093,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(name, NULL, "[name]", cmd_name, 1, 1),
 #if defined(CONFIG_BT_OBSERVER)
 	SHELL_CMD_ARG(scan, NULL,
-		      "<value: on, passive, off> [filter: dups, nodups] [wl]",
-		      cmd_scan, 2, 2),
+		      "<value: on, passive, off> [filter: dups, nodups] [wl]"
+		      ADV_EXT_SCAN_OPT,
+		      cmd_scan, 2, 4),
 #endif /* CONFIG_BT_OBSERVER */
 #if defined(CONFIG_BT_BROADCASTER)
 	SHELL_CMD_ARG(advertise, NULL,
@@ -2052,7 +2123,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 #endif /* CONFIG_BT_BROADCASTER */
 #if defined(CONFIG_BT_CONN)
 #if defined(CONFIG_BT_CENTRAL)
-	SHELL_CMD_ARG(connect, NULL, HELP_ADDR_LE, cmd_connect_le, 3, 0),
+	SHELL_CMD_ARG(connect, NULL, HELP_ADDR_LE ADV_EXT_CONN_OPT,
+		      cmd_connect_le, 3, 3),
 #if !defined(CONFIG_BT_WHITELIST)
 	SHELL_CMD_ARG(auto-conn, NULL, HELP_ADDR_LE, cmd_auto_conn, 3, 0),
 #endif /* !defined(CONFIG_BT_WHITELIST) */
@@ -2094,7 +2166,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(wl-add, NULL, HELP_ADDR_LE, cmd_wl_add, 3, 0),
 	SHELL_CMD_ARG(wl-rem, NULL, HELP_ADDR_LE, cmd_wl_rem, 3, 0),
 	SHELL_CMD_ARG(wl-clear, NULL, HELP_NONE, cmd_wl_clear, 1, 0),
-	SHELL_CMD_ARG(wl-connect, NULL, "<on, off>", cmd_wl_connect, 2, 0),
+	SHELL_CMD_ARG(wl-connect, NULL, "<on, off>" ADV_EXT_CONN_OPT,
+		      cmd_wl_connect, 2, 3),
 #endif /* defined(CONFIG_BT_WHITELIST) */
 #if defined(CONFIG_BT_FIXED_PASSKEY)
 	SHELL_CMD_ARG(fixed-passkey, NULL, "[passkey]", cmd_fixed_passkey,

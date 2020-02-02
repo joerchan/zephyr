@@ -56,6 +56,11 @@ static struct bt_le_oob oob_remote;
 
 #define KEY_STR_LEN 33
 
+#if defined(CONFIG_BT_ADV_EXT)
+static u8_t selected_adv;
+struct bt_adv *adv_sets[CONFIG_BT_MAX_ADV_SET];
+#endif
+
 #if defined(CONFIG_BT_OBSERVER)
 static bool data_cb(struct bt_data *data, void *user_data)
 {
@@ -114,7 +119,7 @@ static void scan_timeout(void)
 static void adv_sent(struct bt_adv *adv, u8_t num_sent)
 {
 	shell_print(ctx_shell, "Advertiser[%d] %p sent %d",
-		    bt_adv_index(adv), adv, num_sent);
+		    bt_adv_set_index(adv), adv, num_sent);
 }
 
 static void adv_connected(struct bt_adv *adv, struct bt_conn *conn)
@@ -124,7 +129,7 @@ static void adv_connected(struct bt_adv *adv, struct bt_conn *conn)
 	bt_addr_le_to_str(bt_conn_get_dst(conn), str, sizeof(str));
 
 	shell_print(ctx_shell, "Advertiser[%d] %p connected by %s",
-		    bt_adv_index(adv), adv, str);
+		    bt_adv_set_index(adv), adv, str);
 }
 
 static void adv_scanned(struct bt_adv *adv, bt_addr_le_t *addr)
@@ -134,7 +139,7 @@ static void adv_scanned(struct bt_adv *adv, bt_addr_le_t *addr)
 	bt_addr_le_to_str(addr, str, sizeof(str));
 
 	shell_print(ctx_shell, "Advertiser[%d] %p scanned by %s",
-		    bt_adv_index(adv), adv, str);
+		    bt_adv_set_index(adv), adv, str);
 }
 #endif /* defined(CONFIG_BT_BROADCASTER) && defined(CONFIG_BT_ADV_EXT) */
 
@@ -792,6 +797,227 @@ static int cmd_directed_adv(const struct shell *shell,
 	return 0;
 }
 #endif /* CONFIG_BT_PERIPHERAL */
+
+#if defined(CONFIG_BT_ADV_EXT)
+static int cmd_adv_create(const struct shell *shell, size_t argc, char *argv[])
+{
+	struct bt_le_adv_param param;
+	struct bt_adv *adv;
+	u8_t adv_index;
+
+	param.options = 0;
+
+	if (!strcmp(argv[1], "conn-scan")) {
+		param.options |= BT_LE_ADV_OPT_CONNECTABLE;
+		param.options |= BT_LE_ADV_OPT_SCANNABLE;
+	} else if (!strcmp(argv[1], "conn-nscan")) {
+		param.options |= BT_LE_ADV_OPT_CONNECTABLE;
+	} else if (!strcmp(argv[1], "nconn-scan")) {
+		param.options |= BT_LE_ADV_OPT_SCANNABLE;
+	} else if (!strcmp(argv[1], "nconn-nscan")) {
+		/* Acceptable option, nothing to do */
+	} else {
+		goto fail_show_help;
+	}
+
+	for (size_t argn = 2; argn < argc; argn++) {
+		const char *arg = argv[argn];
+
+		if (!strcmp(arg, "ext-data")) {
+			param.options |= BT_LE_ADV_OPT_EXT_DATA;
+		} else if (!strcmp(arg, "long-range")) {
+			param.options |= BT_LE_ADV_OPT_LONG_RANGE;
+		} else if (!strcmp(arg, "ext-data-no-1m")) {
+			param.options |= BT_LE_ADV_OPT_EXT_DATA;
+		} else if (!strcmp(arg, "anon")) {
+			param.options |= BT_LE_ADV_OPT_ANONYMOUS;
+		} else if (!strcmp(arg, "tx-power")) {
+			param.options |= BT_LE_ADV_OPT_USE_TX_POWER;
+		} else if (!strcmp(arg, "scan-reports")) {
+			param.options |= BT_LE_ADV_OPT_SCAN_REPORTS;
+		} else if (!strcmp(arg, "wl")) {
+			param.options |= BT_LE_ADV_OPT_FILTER_SCAN_REQ;
+			param.options |= BT_LE_ADV_OPT_FILTER_CONN;
+		} else if (!strcmp(arg, "wl-scan")) {
+			param.options |= BT_LE_ADV_OPT_FILTER_SCAN_REQ;
+		} else if (!strcmp(arg, "wl-conn")) {
+			param.options |= BT_LE_ADV_OPT_FILTER_CONN;
+		} else if (!strcmp(arg, "identity")) {
+			param.options |= BT_LE_ADV_OPT_USE_IDENTITY;
+		} else {
+			goto fail_show_help;
+		}
+	}
+
+	param.interval_min = BT_GAP_ADV_FAST_INT_MIN_2;
+	param.interval_max = BT_GAP_ADV_FAST_INT_MAX_2;
+
+	adv = bt_le_adv_set_create(&param);
+	if (!adv) {
+		shell_error(shell, "Failed to configure advertiser set");
+		return -ENOEXEC;
+	}
+
+	adv_index = bt_adv_set_index(adv);
+	adv_sets[adv_index] = adv;
+
+	shell_print(shell, "Created adv id: %d, adv: %p", adv_index, adv);
+
+	return 0;
+
+fail_show_help:
+	shell_help(shell);
+	return -ENOEXEC;
+}
+
+static int cmd_adv_data(const struct shell *shell, size_t argc, char *argv[])
+{
+	struct bt_adv *adv = adv_sets[selected_adv];
+	struct bt_data ad[4];
+	size_t ad_len = 0;
+	u8_t discov_data = (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR);
+	int err;
+
+	if (!adv) {
+		return -EINVAL;
+	}
+
+	for (size_t argn = 1; argn < argc; argn++) {
+		const char *arg = argv[argn];
+
+		if (!strcmp(arg, "discov")) {
+			ad[ad_len].type = BT_DATA_FLAGS;
+			ad[ad_len].data_len = sizeof(discov_data);
+			ad[ad_len].data = &discov_data;
+			ad_len++;
+		} else if (!strcmp(arg, "name")) {
+			const char *name = bt_get_name();
+
+			ad[ad_len].type = BT_DATA_NAME_COMPLETE;
+			ad[ad_len].data_len = strlen(name);
+			ad[ad_len].data = name;
+			ad_len++;
+		} else {
+			shell_help(shell);
+			return -ENOEXEC;
+		}
+	}
+
+	err = bt_le_adv_set_data(adv, ad, ad_len, NULL, 0);
+	if (err) {
+		shell_print(shell, "Failed to set advertising set data (%d)",
+			    err);
+		return -ENOEXEC;
+	}
+
+	return 0;
+}
+
+static int cmd_adv_start(const struct shell *shell, size_t argc, char *argv[])
+{
+	struct bt_adv *adv = adv_sets[selected_adv];
+	u8_t num_events = 0;
+	s32_t timeout = 0;
+	int err;
+
+	if (!adv) {
+		return -EINVAL;
+	}
+
+	for (size_t argn = 1; argn < argc; argn++) {
+		const char *arg = argv[argn];
+
+		if (!strcmp(arg, "timeout")) {
+			if (++argn == argc) {
+				goto fail_show_help;
+			}
+
+			timeout = strtoul(argv[argn], NULL, 16);
+		}
+		if (!strcmp(arg, "num_events")) {
+			if (++argn == argc) {
+				goto fail_show_help;
+			}
+
+			num_events = strtoul(argv[argn], NULL, 16);
+		}
+	}
+
+	err = bt_le_adv_set_start(adv, timeout, num_events);
+	if (err) {
+		shell_print(shell, "Failed to start advertising set (%d)", err);
+		return -ENOEXEC;
+	}
+
+	shell_print(shell, "Advertiser[%d] %p set started", selected_adv, adv);
+	return 0;
+
+fail_show_help:
+	shell_help(shell);
+	return -ENOEXEC;
+}
+
+static int cmd_adv_stop(const struct shell *shell, size_t argc, char *argv[])
+{
+	struct bt_adv *adv = adv_sets[selected_adv];
+	int err;
+
+	if (!adv) {
+		return -EINVAL;
+	}
+
+	err = bt_le_adv_set_stop(adv);
+	if (err) {
+		shell_print(shell, "Failed to stop advertising set (%d)", err);
+		return -ENOEXEC;
+	}
+
+	shell_print(shell, "Advertiser set stopped");
+	return 0;
+}
+
+static int cmd_adv_delete(const struct shell *shell, size_t argc, char *argv[])
+{
+	struct bt_adv *adv = adv_sets[selected_adv];
+	int err;
+
+	if (!adv) {
+		return -EINVAL;
+	}
+
+	err = bt_le_adv_set_delete(adv);
+	if (err) {
+		shell_error(ctx_shell, "Failed to delete advertiser set");
+		return err;
+	}
+
+	bt_adv_unref(adv);
+	adv_sets[selected_adv] = NULL;
+	return 0;
+}
+
+static int cmd_adv_select(const struct shell *shell, size_t argc, char *argv[])
+{
+	if (argc == 2) {
+		u8_t id = strtol(argv[1], NULL, 10);
+
+		if (!(id < ARRAY_SIZE(adv_sets))) {
+			return -EINVAL;
+		}
+
+		selected_adv = id;
+		return 0;
+	}
+
+	for (int i = 0; i < ARRAY_SIZE(adv_sets); i++) {
+		if (adv_sets[i]) {
+			shell_print(shell, "Advertiser[%d] %p", i, adv_sets[i]);
+		}
+	}
+
+	return -ENOEXEC;
+}
+#endif /* CONFIG_BT_ADV_EXT */
 #endif /* CONFIG_BT_BROADCASTER */
 
 #if defined(CONFIG_BT_CONN)
@@ -1811,6 +2037,20 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(directed-adv, NULL, HELP_ADDR_LE " [mode: low]",
 		      cmd_directed_adv, 3, 1),
 #endif /* CONFIG_BT_PERIPHERAL */
+#if defined(CONFIG_BT_ADV_EXT)
+	SHELL_CMD_ARG(adv-create, NULL,
+		      "<type: conn-scan conn-nscan, nconn-scan nconn-nscan> "
+		      "[ext-data] [ext-data-no-1m] [long-range] "
+		      "[whitelist: wl, wl-scan, wl-conn] [identity]",
+		      cmd_adv_create, 2, 5),
+	SHELL_CMD_ARG(adv-data, NULL, "<type: discov, name>", cmd_adv_data,
+		      1, 2),
+	SHELL_CMD_ARG(adv-start, NULL, "[timeout] [num_events]", cmd_adv_start,
+		      1, 2),
+	SHELL_CMD_ARG(adv-stop, NULL, "", cmd_adv_stop, 1, 0),
+	SHELL_CMD_ARG(adv-delete, NULL, "", cmd_adv_delete, 1, 0),
+	SHELL_CMD_ARG(adv-select, NULL, "[adv]", cmd_adv_select, 1, 1),
+#endif
 #endif /* CONFIG_BT_BROADCASTER */
 #if defined(CONFIG_BT_CONN)
 #if defined(CONFIG_BT_CENTRAL)

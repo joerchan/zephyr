@@ -110,6 +110,34 @@ static void scan_timeout(void)
 }
 #endif /* CONFIG_BT_OBSERVER */
 
+#if defined(CONFIG_BT_BROADCASTER) && defined(CONFIG_BT_ADV_EXT)
+static void adv_sent(struct bt_adv *adv, u8_t num_sent)
+{
+	shell_print(ctx_shell, "Advertiser[%d] %p sent %d",
+		    bt_adv_index(adv), adv, num_sent);
+}
+
+static void adv_connected(struct bt_adv *adv, struct bt_conn *conn)
+{
+	char str[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_le_to_str(bt_conn_get_dst(conn), str, sizeof(str));
+
+	shell_print(ctx_shell, "Advertiser[%d] %p connected by %s",
+		    bt_adv_index(adv), adv, str);
+}
+
+static void adv_scanned(struct bt_adv *adv, bt_addr_le_t *addr)
+{
+	char str[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_le_to_str(addr, str, sizeof(str));
+
+	shell_print(ctx_shell, "Advertiser[%d] %p scanned by %s",
+		    bt_adv_index(adv), adv, str);
+}
+#endif /* defined(CONFIG_BT_BROADCASTER) && defined(CONFIG_BT_ADV_EXT) */
+
 #if !defined(CONFIG_BT_CONN)
 #if 0 /* FIXME: Add support for changing prompt */
 static const char *current_prompt(void)
@@ -320,6 +348,14 @@ static struct bt_le_scan_cb scan_callbacks = {
 };
 #endif /* defined(CONFIG_BT_OBSERVER) */
 
+#if defined(CONFIG_BT_BROADCASTER) && defined(CONFIG_BT_ADV_EXT)
+static struct bt_le_adv_cb adv_callbacks = {
+	.sent = adv_sent,
+	.connected = adv_connected,
+	.scanned = adv_scanned,
+};
+#endif /* defined(CONFIG_BT_BROADCASTER) && defined(CONFIG_BT_ADV_EXT) */
+
 static void bt_ready(int err)
 {
 	if (err) {
@@ -335,6 +371,10 @@ static void bt_ready(int err)
 
 #if defined(CONFIG_BT_OBSERVER)
 	bt_le_scan_cb_register(&scan_callbacks);
+#endif
+
+#if defined(CONFIG_BT_BROADCASTER) && defined(CONFIG_BT_ADV_EXT)
+	bt_le_adv_cb_register(&adv_callbacks);
 #endif
 
 #if defined(CONFIG_BT_CONN)

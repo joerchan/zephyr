@@ -921,6 +921,20 @@ static void hci_num_completed_packets(struct net_buf *buf)
 }
 
 #if defined(CONFIG_BT_CENTRAL)
+static struct bt_conn_scan_param scan_param = {
+	.options = BT_LE_CONN_OPT_NONE,
+	.interval = BT_GAP_SCAN_FAST_INTERVAL,
+	.window = BT_GAP_SCAN_FAST_INTERVAL,
+	.interval_coded = 0,
+	.window_coded = 0,
+};
+
+int bt_conn_set_scan_params(const struct bt_conn_scan_param *param)
+{
+	scan_param = *param;
+	return 0;
+}
+
 static int le_create_conn_set_random_addr(bool use_filter, u8_t *own_addr_type)
 {
 	int err;
@@ -998,8 +1012,6 @@ int bt_le_create_conn(const struct bt_conn *conn)
 		/* User Initiated procedure use fast scan parameters. */
 		bt_addr_le_copy(&cp->peer_addr, BT_ADDR_LE_ANY);
 		cp->filter_policy = BT_HCI_LE_CREATE_CONN_FP_WHITELIST;
-		cp->scan_interval = sys_cpu_to_le16(BT_GAP_SCAN_FAST_INTERVAL);
-		cp->scan_window = sys_cpu_to_le16(BT_GAP_SCAN_FAST_WINDOW);
 	} else {
 		const bt_addr_le_t *peer_addr = &conn->le.dst;
 
@@ -1012,10 +1024,10 @@ int bt_le_create_conn(const struct bt_conn *conn)
 #endif
 		bt_addr_le_copy(&cp->peer_addr, peer_addr);
 		cp->filter_policy = BT_HCI_LE_CREATE_CONN_FP_DIRECT;
-		/* Interval == window for continuous scanning */
-		cp->scan_interval = sys_cpu_to_le16(BT_GAP_SCAN_FAST_INTERVAL);
-		cp->scan_window = cp->scan_interval;
 	}
+
+	cp->scan_interval = sys_cpu_to_le16(scan_param.interval);
+	cp->scan_window = sys_cpu_to_le16(scan_param.window);
 
 	cp->conn_interval_min = sys_cpu_to_le16(conn->le.interval_min);
 	cp->conn_interval_max = sys_cpu_to_le16(conn->le.interval_max);

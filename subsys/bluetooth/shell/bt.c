@@ -56,6 +56,69 @@ static struct bt_le_oob oob_remote;
 
 #define KEY_STR_LEN 33
 
+/* TODO:
+
+*** ncs/master nrfxlib not working adv/scan roles not starting/crashes.
+
+*** hal_rcs.c 1355 (0x54b)
+
+> HCI Event: Vendor (0xff) plen 15                                        #5628 91113.442188
+        aa 68 61 6c 5f 72 63 73 2e 63 00 4b 05 00 00     .hal_rcs.c.K...
+NCS zephyr:  9f330ce1323a055b263794e84bf50f98da3e135f
+NCS nrfxlib: 1d48321863678362e42a72654b67e355b5c1d27d
+NCS nrf      32b60443f4411f036f367f0672be1cadfacb529b
+CONFIG_BLECTRL_SLAVE_COUNT=1
+CONFIG_BT_LL_NRFXLIB=y
+CONFIG_BT_RX_BUF_LEN=28
+
+*** create conn scan interval/windows == invalid, should be ignored.
+< HCI Command: LE Extended Create Connection (0x08|0x0043) plen 42        #6099 95023.292226
+        Filter policy: White list is not used (0x00)
+        Own address type: Random (0x03)
+        Peer address type: Random (0x01)
+        Peer address: 5B:BA:72:CC:03:D6 (Resolvable)
+        Initiating PHYs: 0x03
+        Entry 0: LE 1M
+          Scan interval: 60.000 msec (0x0060)
+          Scan window: 30.000 msec (0x0030)
+          Min connection interval: 30.00 msec (0x0018)
+          Max connection interval: 50.00 msec (0x0028)
+          Connection latency: 0 (0x0000)
+          Supervision timeout: 4000 msec (0x0190)
+          Min connection length: 0.000 msec (0x0000)
+          Max connection length: 0.000 msec (0x0000)
+        Entry 1: LE 2M
+          Scan interval: 0.000 msec (0x0000)
+          Scan window: 40914.375 msec (0xffb7)
+          Min connection interval: 30.00 msec (0x0018)
+          Max connection interval: 50.00 msec (0x0028)
+          Connection latency: 0 (0x0000)
+          Supervision timeout: 4000 msec (0x0190)
+          Min connection length: 0.000 msec (0x0000)
+          Max connection length: 0.000 msec (0x0000)
+> HCI Event: Command Status (0x0f) plen 4                                 #6100 95023.296071
+      LE Extended Create Connection (0x08|0x0043) ncmd 1
+        Status: Parameter Out Of Manadatory Range (0x30)
+
+*** set data length => connection limit exceed error code.
+
+ > HCI Event: Command Complete (0x0e) plen 12                               #936 95444.792487
+      LE Read Maximum Data Length (0x08|0x002f) ncmd 1
+        Status: Success (0x00)
+        Max TX octets: 251
+        Max TX time: 2704
+        Max RX octets: 251
+        Max RX time: 2704
+< HCI Command: LE Set Data Length (0x08|0x0022) plen 6                     #937 95444.821381
+        Handle: 15
+        TX octets: 251
+        TX time: 2704
+> HCI Event: Command Complete (0x0e) plen 6                                #938 95444.823416
+      LE Set Data Length (0x08|0x0022) ncmd 1
+        Status: Connection Limit Exceeded (0x09)
+        Handle: 15
+
+ */
 #if defined(CONFIG_BT_ADV_EXT)
 static u8_t selected_adv;
 struct bt_adv *adv_sets[CONFIG_BT_MAX_ADV];
@@ -582,6 +645,7 @@ static int cmd_id_select(const struct shell *shell, size_t argc, char *argv[])
 }
 
 #if defined(CONFIG_BT_OBSERVER)
+static u16_t timeout_scan;
 static int cmd_active_scan_on(const struct shell *shell, u32_t options)
 {
 	int err;
@@ -589,7 +653,8 @@ static int cmd_active_scan_on(const struct shell *shell, u32_t options)
 			.type       = BT_LE_SCAN_TYPE_ACTIVE,
 			.options    = BT_LE_SCAN_OPT_FILTER_DUPLICATE,
 			.interval   = BT_GAP_SCAN_FAST_INTERVAL,
-			.window     = BT_GAP_SCAN_FAST_WINDOW };
+			.window     = BT_GAP_SCAN_FAST_WINDOW,
+			.timeout    = timeout_scan};
 
 	param.options |= options;
 
@@ -680,6 +745,14 @@ static int cmd_scan(const struct shell *shell, size_t argc, char *argv[])
 		return SHELL_CMD_HELP_PRINTED;
 	}
 
+	return 0;
+}
+
+static int cmd_scan_timeout(const struct shell *shell, size_t argc,
+			    char *argv[])
+{
+	timeout_scan = strtoul(argv[1], NULL, 16);
+	shell_print(shell, "Scan time %d ms set", timeout_scan * K_MSEC(10));
 	return 0;
 }
 #endif /* CONFIG_BT_OBSERVER */
@@ -2096,6 +2169,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 		      "<value: on, passive, off> [filter: dups, nodups] [wl]"
 		      ADV_EXT_SCAN_OPT,
 		      cmd_scan, 2, 4),
+	SHELL_CMD_ARG(scan-timeout, NULL, "<timeout>", cmd_scan_timeout, 2, 0),
 #endif /* CONFIG_BT_OBSERVER */
 #if defined(CONFIG_BT_BROADCASTER)
 	SHELL_CMD_ARG(advertise, NULL,

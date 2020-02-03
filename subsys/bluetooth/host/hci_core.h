@@ -33,10 +33,13 @@ enum {
 	BT_DEV_HAS_PUB_KEY,
 	BT_DEV_PUB_KEY_BUSY,
 
+// #if !defined(CONFIG_BT_ADV_EXT)
 	BT_DEV_ADVERTISING,
 	BT_DEV_ADVERTISING_NAME,
 	BT_DEV_ADVERTISING_CONNECTABLE,
 	BT_DEV_ADVERTISING_IDENTITY,
+// #endif /* !defined(CONFIG_BT_ADV_ EXT) */
+
 	BT_DEV_KEEP_ADVERTISING,
 	BT_DEV_SCANNING,
 	BT_DEV_EXPLICIT_SCAN,
@@ -65,6 +68,12 @@ enum {
 				 BIT(BT_DEV_PRESET_ID))
 
 enum {
+	BT_ADV_ENABLED,
+
+	BT_ADV_ADVERTISING,
+	BT_ADV_ADVERTISING_NAME,
+	BT_ADV_ADVERTISING_CONNECTABLE,
+
 	BT_ADV_RPA_VALID,
 
 	BT_ADV_NUM_FLAGS,
@@ -83,6 +92,8 @@ struct bt_adv {
 	ATOMIC_DEFINE(flags, BT_ADV_NUM_FLAGS);
 
 #if defined(CONFIG_BT_ADV_EXT)
+	/* Reserved connection object */
+	// struct bt_conn          *conn;
 	/* TX Power in use by the controller */
 	s8_t                    tx_power;
 

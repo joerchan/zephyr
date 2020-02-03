@@ -64,6 +64,32 @@ enum {
 #define BT_DEV_PERSISTENT_FLAGS (BIT(BT_DEV_ENABLE) | \
 				 BIT(BT_DEV_PRESET_ID))
 
+enum {
+	BT_ADV_RPA_VALID,
+
+	BT_ADV_NUM_FLAGS,
+};
+
+struct bt_adv {
+	/* ID Address used for advertising */
+	u8_t                    id;
+
+	/* Advertising handle */
+	u16_t			handle;
+
+	/* Current local Random Address */
+	bt_addr_le_t		random_addr;
+
+	ATOMIC_DEFINE(flags, BT_ADV_NUM_FLAGS);
+
+#if defined(CONFIG_BT_ADV_EXT)
+	/* TX Power in use by the controller */
+	s8_t                    tx_power;
+
+	atomic_t		ref;
+#endif /* defined(CONFIG_BT_ADV_EXT) */
+};
+
 struct bt_dev_le {
 	/* LE features */
 	u8_t			features[8];
@@ -109,11 +135,15 @@ struct bt_dev {
 	bt_addr_le_t		id_addr[CONFIG_BT_ID_MAX];
 	u8_t                    id_count;
 
-	/* ID Address used for advertising */
-	u8_t                    adv_id;
-
+#if !defined(CONFIG_BT_ADV_EXT)
+	/* Legacy advertiser */
+	struct bt_adv           adv;
+#else
+	/* Pointer to reserved advertising set */
+	struct bt_adv           *adv;
+#endif
 	/* Current local Random Address */
-	bt_addr_le_t		random_addr;
+	bt_addr_le_t            random_addr;
 
 	/* Controller version & manufacturer information */
 	u8_t			hci_version;
@@ -206,9 +236,12 @@ void bt_setup_public_id_addr(void);
 
 void bt_finalize_init(void);
 
-int bt_le_adv_start_internal(const struct bt_le_adv_param *param,
-			     const struct bt_data *ad, size_t ad_len,
-			     const struct bt_data *sd, size_t sd_len,
-			     const bt_addr_le_t *peer);
+int bt_le_adv_start_legacy(const struct bt_le_adv_param *param,
+			   const struct bt_data *ad, size_t ad_len,
+			   const struct bt_data *sd, size_t sd_len,
+			   const bt_addr_le_t *peer);
+
 void bt_le_adv_resume(void);
 bool bt_le_scan_random_addr_check(void);
+int bt_le_adv_direct(const struct bt_le_adv_param *param,
+		     const bt_addr_le_t *peer);

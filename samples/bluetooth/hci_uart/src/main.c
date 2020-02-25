@@ -18,6 +18,8 @@
 
 #include <device.h>
 #include <init.h>
+#include <debug/stack.h>
+
 #include <drivers/uart.h>
 
 #include <net/buf.h>
@@ -400,5 +402,21 @@ void main(void)
 		if (err) {
 			LOG_ERR("Failed to send");
 		}
+
+#if defined(CONFIG_INIT_STACKS)
+		static u32_t prio_ts;
+
+		if (k_uptime_get_32() - prio_ts > K_SECONDS(5)) {
+			STACK_ANALYZE("main thread stack",
+				      z_main_stack);
+			STACK_ANALYZE("ISR stack",
+				      _interrupt_stack);
+			STACK_ANALYZE("idle thread stack",
+				      z_idle_stack);
+			STACK_ANALYZE("sys workqueue stack",
+				      sys_work_q_stack);
+			prio_ts = k_uptime_get_32();
+		}
+#endif
 	}
 }

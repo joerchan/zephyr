@@ -349,6 +349,40 @@ static int hci_uart_init(struct device *unused)
 DEVICE_INIT(hci_uart, "hci_uart", &hci_uart_init, NULL, NULL,
 	    APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);
 
+
+#if defined(CONFIG_INIT_STACKS) && defined(CONFIG_THREAD_STACK_INFO) && \
+	defined(CONFIG_THREAD_MONITOR)
+static void thread_stack_usage(const struct k_thread *thread, void *user_data)
+{
+	size_t size = thread->stack_info.size;
+	unsigned int pcnt;
+	const char *tname;
+	size_t unused;
+	int ret;
+
+	tname = k_thread_name_get((k_tid_t)thread);
+
+	// printk("%s%p %-10s",
+	// 	(thread == k_current_get()) ? "*" : " ",
+	// 	thread,
+	// 	tname ? tname : "NA");
+
+	ret = k_thread_stack_space_get(thread, &unused);
+	if (ret) {
+		printk("Unable to determine unused stack size (%d)\n",
+			ret);
+		return;
+	}
+
+	/* Calculate the real size reserved for the stack */
+	pcnt = ((size - unused) * 100U) / size;
+
+	LOG_INF("\tstack size %zu, unused %zu, usage %zu / %zu (%u %%)\n",
+			    size, unused, size - unused, size, pcnt);
+
+}
+#endif
+
 void main(void)
 {
 	/* incoming events and data from the controller */
@@ -403,18 +437,13 @@ void main(void)
 			LOG_ERR("Failed to send");
 		}
 
-#if defined(CONFIG_INIT_STACKS)
+#if defined(CONFIG_INIT_STACKS) && defined(CONFIG_THREAD_STACK_INFO) && \
+	defined(CONFIG_THREAD_MONITOR)
 		static u32_t prio_ts;
 
 		if (k_uptime_get_32() - prio_ts > K_SECONDS(5)) {
-			STACK_ANALYZE("main thread stack",
-				      z_main_stack);
-			STACK_ANALYZE("ISR stack",
-				      _interrupt_stack);
-			STACK_ANALYZE("idle thread stack",
-				      z_idle_stack);
-			STACK_ANALYZE("sys workqueue stack",
-				      sys_work_q_stack);
+			LOG_INF("Threads:");
+			k_thread_foreach_unlocked(thread_stack_usage, NULL);
 			prio_ts = k_uptime_get_32();
 		}
 #endif

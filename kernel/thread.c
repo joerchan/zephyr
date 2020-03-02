@@ -65,7 +65,10 @@ void k_thread_foreach_unlocked(k_thread_user_cb_t user_cb, void *user_data)
 	__ASSERT(user_cb != NULL, "user_cb can not be NULL");
 
 	key = k_spin_lock(&lock);
+	int i = 0;
+	printk("%p\n", _kernel.threads);
 	for (thread = _kernel.threads; thread; thread = thread->next_thread) {
+		printk("\ti: %u thread: %p next %p\n", i, thread, thread->next_thread);
 		k_spin_unlock(&lock, key);
 		user_cb(thread, user_data);
 		key = k_spin_lock(&lock);

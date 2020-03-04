@@ -281,3 +281,77 @@ config OPENOCD_SUPPORT
 	  selects CONFIG_THREAD_MONITOR, so all of its caveats are implied.)
 
 endmenu
+
+menuconfig STACK_SIZE_ANALYZER
+	bool "Enable Stack size analyzer"
+	select INIT_STACKS
+	select THREAD_MONITOR
+	select THREAD_STACK_INFO
+	help
+	  Enable stack size analyzer functionality and all the required modules.
+	  This module may be used to debug stack overflow or to find stacks
+	  which size may be optimized down.
+
+if STACK_SIZE_ANALYZER
+module = STACK_SIZE_ANALYZER
+module-str = stack size analyzer
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+choice
+	prompt "Stack analysis print mode"
+
+config STACK_SIZE_ANALYZER_USE_LOG
+	bool "Use logger output"
+	select LOG
+	help
+	  Use logger output to print stack size information.
+
+config STACK_SIZE_ANALYZER_USE_PRINTK
+	bool "Use printk function"
+	help
+	  Use kernel printk function to print stack size information.
+
+endchoice
+
+config STACK_SIZE_ANALYZER_RUN_UNLOCKED
+	bool "Run analysis with interrupts unlocked"
+	default y
+	help
+	  The stack analysis takes quite a long time.
+	  Every stack it finds is analyzed word by word to find any that
+	  does not match the magic number.
+	  Normally while stacks are analyzed the k_thread_foreach function
+	  is used.
+	  While this is a safe run from the thread list perspective it may lock
+	  the interrupts for a long time - long enough to disconnect when
+	  Bluetooth communication is used.
+	  Setting this flag will force stack analyzer to use
+	  the k_thread_foreach_unlocked function.
+	  This will allow the interrupts to be processed while the stack size
+	  is analyzed.
+	  For the limitation of such configuration see the k_thread_foreach
+	  documentation.
+
+config STACK_SIZE_ANALYZER_AUTO
+	bool "Run periodic stack analysis in a thread"
+	default y
+	help
+	  Run the stack size analyzer automatically, without the need to add
+	  any code to the application.
+	  Stack size analysis would be called periodically.
+
+if STACK_SIZE_ANALYZER_AUTO
+
+config STACK_SIZE_ANALYZER_AUTO_PERIOD
+	int "Stack analysis period"
+	default 60
+	help
+	  The time in seconds to call stack analyzer periodic printing function.
+
+config STACK_SIZE_ANALYZER_AUTO_STACK_SIZE
+	int "Stack size for the periodic stack analysis thread"
+	default 512
+
+endif # STACK_SIZE_ANALYZER_AUTO
+
+endif # STACK_SIZE_ANALYZER

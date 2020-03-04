@@ -9,3 +9,8 @@ zephyr_sources_ifdef(
   CONFIG_ASAN
   asan_hacks.c
   )
+
+zephyr_sources_ifdef(
+  CONFIG_STACK_SIZE_ANALYZER
+  stack_size_analyzer.c
+  )

@@ -13,44 +13,43 @@ extern "C" {
 #endif
 
 /**
- * @defgroup stack_size_analyzer Stack analyzer
+ * @defgroup stack_analyzer Stack analyzer
  * @brief Module for analyzing stack usage in samples
  *
  * This module implements functions and the configuration that simplifies
- * stack size analysis.
+ * stack analysis.
  * @{
  */
 
 /**
- * @brief Stack size analyzer callback function
+ * @brief Stack analyzer callback function
  *
- * Callback function with stack size statistics.
+ * Callback function with stack statistics.
  *
  * @param name  The name of the thread or stringified address
  *              of the thread handle if name is not set.
  * @param size  The total size of the stack
  * @param used  Stack size in use
  */
-typedef void (*stack_size_analyzer_cb)(const char *name,
-				  size_t size, size_t used);
+typedef void (*thread_analyzer_cb)(const char *name, size_t size, size_t used);
 
 /**
- * @brief Run the stack size analyzer and return the results to the callback
+ * @brief Run the stack analyzer and return the results to the callback
  *
  * This function analyzes stacks for all threads and calls
  * a given callback on every thread found.
  *
  * @param cb The callback function handler
  */
-void stack_size_analyzer_run(stack_size_analyzer_cb cb);
+void thread_analyzer_run(thread_analyzer_cb cb);
 
 /**
- * @brief Run the stack size analyzer and print the result
+ * @brief Run the stack analyzer and print the result
  *
- * This function runs the stack size analyzer and prints the output in standard
+ * This function runs the stack analyzer and prints the output in standard
  * form.
  */
-void stack_size_analyzer_print(void);
+void thread_analyzer_print(void);
 
 /** @} */
 

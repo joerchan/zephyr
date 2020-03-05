@@ -15,7 +15,7 @@
 #include <logging/log.h>
 #include <stdio.h>
 
-LOG_MODULE_REGISTER(stack_size_analyzer, CONFIG_STACK_SIZE_ANALYZER_LOG_LEVEL);
+LOG_MODULE_REGISTER(thread_analyzer, CONFIG_THREAD_ANALYZER_LOG_LEVEL);
 
 #if IS_ENABLED(CONFIG_STACK_SIZE_ANALYZER_USE_PRINTK)
 #define STACK_SIZE_ANALYZER_PRINT(...) printk(__VA_ARGS__)
@@ -44,8 +44,7 @@ LOG_MODULE_REGISTER(stack_size_analyzer, CONFIG_STACK_SIZE_ANALYZER_LOG_LEVEL);
  * @param size The total size of the stack
  * @param used The used size of the stack
  */
-static void stack_print_cb(const char *name,
-				    size_t size, size_t used)
+static void thread_print_cb(const char *name, size_t size, size_t used)
 {
 	unsigned int pcnt = (used * 100U) / size;
 
@@ -71,10 +70,10 @@ static void stack_thread_cb(const struct k_thread *thread, void *user_data)
 		sprintf(hexname, "%p", (void *)thread);
 	}
 
-	cb(name, size, size-unused);
+	cb(name, size, size - unused);
 }
 
-void stack_size_analyzer_run(stack_size_analyzer_cb cb)
+void stack_size_analyzer_run(thread_analyzer_cb cb)
 {
 	if (IS_ENABLED(CONFIG_STACK_SIZE_ANALYZER_RUN_UNLOCKED)) {
 		k_thread_foreach_unlocked(stack_thread_cb, cb);
@@ -95,13 +94,13 @@ void stack_size_analyzer_auto(void)
 {
 	for (;;) {
 		stack_size_analyzer_print();
-		k_sleep(K_SECONDS(CONFIG_STACK_SIZE_ANALYZER_AUTO_PERIOD));
+		k_sleep(K_SECONDS(CONFIG_THREAD_ANALYZER_AUTO_PERIOD));
 	}
 }
 
-K_THREAD_DEFINE(stack_size_analyzer,
-		CONFIG_STACK_SIZE_ANALYZER_AUTO_STACK_SIZE,
-		stack_size_analyzer_auto,
+K_THREAD_DEFINE(thread_analyzer,
+		CONFIG_THREAD_ANALYZER_AUTO_STACK_SIZE,
+		thread_analyzer_auto,
 		NULL, NULL, NULL,
 		CONFIG_NUM_PREEMPT_PRIORITIES - 1,
 		0,

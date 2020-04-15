@@ -738,6 +738,7 @@ static int cmd_advertise(const struct shell *shell, size_t argc, char *argv[])
 		return 0;
 	}
 
+	param.peer = NULL;
 	param.id = selected_id;
 	param.interval_min = BT_GAP_ADV_FAST_INT_MIN_2;
 	param.interval_max = BT_GAP_ADV_FAST_INT_MAX_2;
@@ -2294,7 +2295,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 				      "<type: discov, name, hex>", cmd_adv_data,
 		      1, 16),
 	SHELL_CMD_ARG(adv-start, NULL, "[timeout] [num_events]", cmd_adv_start,
-		      1, 2),
+		      1, 4),
 	SHELL_CMD_ARG(adv-stop, NULL, "", cmd_adv_stop, 1, 0),
 	SHELL_CMD_ARG(adv-delete, NULL, "", cmd_adv_delete, 1, 0),
 	SHELL_CMD_ARG(adv-select, NULL, "[adv]", cmd_adv_select, 1, 1),

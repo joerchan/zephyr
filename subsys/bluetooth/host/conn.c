@@ -114,6 +114,8 @@ static inline const char *state2str(bt_conn_state_t state)
 		return "connect-scan";
 	case BT_CONN_CONNECT_DIR_ADV:
 		return "connect-dir-adv";
+	case BT_CONN_CONNECTED_ADV:
+		return "connected-adv";
 	case BT_CONN_CONNECT_ADV:
 		return "connect-adv";
 	case BT_CONN_CONNECT_AUTO:
@@ -340,9 +342,7 @@ static void conn_update_timeout(struct k_work *work)
 		/* A new reference likely to have been released here,
 		 * Resume advertising.
 		 */
-		if (IS_ENABLED(CONFIG_BT_PERIPHERAL) &&
-		    atomic_test_bit(bt_dev.flags, BT_DEV_KEEP_ADVERTISING) &&
-		    !atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING)) {
+		if (IS_ENABLED(CONFIG_BT_PERIPHERAL)) {
 			bt_le_adv_resume();
 		}
 
@@ -1639,7 +1639,7 @@ void bt_conn_set_state(struct bt_conn *conn, bt_conn_state_t state)
 	BT_DBG("%s -> %s", state2str(conn->state), state2str(state));
 
 	if (conn->state == state) {
-		BT_WARN("no transition");
+		BT_WARN("no transition %s", state2str(state));
 		return;
 	}
 
@@ -1750,12 +1750,17 @@ void bt_conn_set_state(struct bt_conn *conn, bt_conn_state_t state)
 			 */
 			bt_conn_unref(conn);
 			break;
+		case BT_CONN_CONNECTED_ADV:
+			bt_conn_unref(conn);
+			break;
 		case BT_CONN_DISCONNECTED:
 			/* Cannot happen, no transition. */
 			break;
 		}
 		break;
 	case BT_CONN_CONNECT_AUTO:
+		break;
+	case BT_CONN_CONNECTED_ADV:
 		break;
 	case BT_CONN_CONNECT_ADV:
 		break;
@@ -1798,6 +1803,7 @@ struct bt_conn *bt_conn_lookup_handle(u16_t handle)
 
 		/* We only care about connections with a valid handle */
 		if (conns[i].state != BT_CONN_CONNECTED &&
+		    conns[i].state != BT_CONN_CONNECTED_ADV &&
 		    conns[i].state != BT_CONN_DISCONNECT) {
 			continue;
 		}

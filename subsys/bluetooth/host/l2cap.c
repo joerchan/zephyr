@@ -584,7 +584,12 @@ int bt_l2cap_send_cb(struct bt_conn *conn, u16_t cid, struct net_buf *buf,
 	hdr->len = sys_cpu_to_le16(buf->len - sizeof(*hdr));
 	hdr->cid = sys_cpu_to_le16(cid);
 
-	return bt_conn_send_cb(conn, buf, cb, user_data);
+	int err = bt_conn_send_cb(conn, buf, cb, user_data);
+	if (err) {
+		BT_ERR("Failed to send: cid %u len %zu", cid, net_buf_frags_len(buf));
+	}
+
+	return err;
 }
 
 static void l2cap_send_reject(struct bt_conn *conn, u8_t ident,

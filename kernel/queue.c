@@ -296,23 +296,67 @@ int k_queue_merge_slist(struct k_queue *queue, sys_slist_t *list)
 static void *k_queue_poll(struct k_queue *queue, k_timeout_t timeout)
 {
 	struct k_poll_event event;
-	int err;
+	int err, /*elapsed = 0,*/ done = 0;
 	k_spinlock_key_t key;
 	void *val;
+	u32_t start;
+	// u64_t end = z_timeout_end_calc(timeout);
 
 	k_poll_event_init(&event, K_POLL_TYPE_FIFO_DATA_AVAILABLE,
 			  K_POLL_MODE_NOTIFY_ONLY, queue);
 
-	event.state = K_POLL_STATE_NOT_READY;
-	err = k_poll(&event, 1, timeout);
-
-	if (err && err != -EAGAIN) {
-		return NULL;
+	if (!K_TIMEOUT_EQ(timeout, K_FOREVER)) {
+		start = k_uptime_get_32();
 	}
 
-	key = k_spin_lock(&queue->lock);
-	val = z_queue_node_peek(sys_sflist_get(&queue->data_q), true);
-	k_spin_unlock(&queue->lock, key);
+	do {
+		event.state = K_POLL_STATE_NOT_READY;
+		err = k_poll(&event, 1, timeout);// - elapsed, );
+
+		if (err && err != -EAGAIN) {
+			printk("return NULL");
+			return NULL;
+		}
+
+		// if (val == NULL)
+		// switch (event.state) {
+		// case K_POLL_STATE_SIGNALED:
+		// 	printk("signal\n");
+		// 	break;
+		// case K_POLL_STATE_FIFO_DATA_AVAILABLE:
+		// 	printk("fifo data available\n");
+		// 	break;
+		// default:
+		// 	printk("something else\n");
+		// 	break;
+		// }
+
+		key = k_spin_lock(&queue->lock);
+		bool empty = k_queue_is_empty(queue);
+		val = z_queue_node_peek(sys_sflist_get(&queue->data_q), true);
+		k_spin_unlock(&queue->lock, key);
+
+		// if ((val == NULL) && !K_TIMEOUT_EQ(timeout, K_FOREVER)) {
+		// 	elapsed = k_uptime_get_32() - start;
+		// 	done = elapsed > timeout;
+		// }
+
+		if (val == NULL) {
+			switch (event.state) {
+			case K_POLL_STATE_SIGNALED:
+				printk("signal\n");
+				break;
+			case K_POLL_STATE_FIFO_DATA_AVAILABLE:
+				printk("fifo data available\n");
+				break;
+			default:
+				printk("something else\n");
+				break;
+			}
+			printk("val is NULL, continue loop\n");
+			printk("Queue is empty %d\n", empty);
+		}
+	} while (!val && !done);
 
 	return val;
 }
@@ -329,6 +373,10 @@ void *z_impl_k_queue_get(struct k_queue *queue, k_timeout_t timeout)
 		node = sys_sflist_get_not_empty(&queue->data_q);
 		data = z_queue_node_peek(node, true);
 		k_spin_unlock(&queue->lock, key);
+		if (!data) {
+			printk("sflist no data\n");
+		}
+
 		return data;
 	}
 
@@ -338,9 +386,15 @@ void *z_impl_k_queue_get(struct k_queue *queue, k_timeout_t timeout)
 	}
 
 #if defined(CONFIG_POLL)
+	#warning "POLL"
 	k_spin_unlock(&queue->lock, key);
 
-	return k_queue_poll(queue, timeout);
+	data = k_queue_poll(queue, timeout);
+	if (!data) {
+		printk("Poll no data\n");
+		// K_TIMEOUT_EQ(timeout, K_NO_WAIT)
+	}
+	return data;
 
 #else
 	int ret = z_pend_curr(&queue->lock, key, &queue->wait_q, timeout);

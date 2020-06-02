@@ -1316,8 +1316,6 @@ static struct bt_conn_tx *conn_tx_alloc(void)
 int bt_conn_send_cb(struct bt_conn *conn, struct net_buf *buf,
 		    bt_conn_tx_cb_t cb, void *user_data)
 {
-	struct bt_conn_tx *tx;
-
 	BT_DBG("conn handle %u buf len %u cb %p user_data %p", conn->handle,
 	       buf->len, cb, user_data);
 
@@ -1328,9 +1326,28 @@ int bt_conn_send_cb(struct bt_conn *conn, struct net_buf *buf,
 	}
 
 	if (cb) {
+		struct bt_conn_tx *tx;
+
 		tx = conn_tx_alloc();
 		if (!tx) {
 			BT_ERR("Unable to allocate TX context");
+
+			net_buf_reset(buf);
+			struct bt_hci_acl_hdr *acl_hdr;
+			acl_hdr = net_buf_pull_mem(buf, sizeof(*acl_hdr));
+
+			struct bt_l2cap_hdr *l2cap_hdr;
+
+			l2cap_hdr = net_buf_pull(buf, sizeof(*l2cap_hdr));
+			BT_WARN("conn %p cid %u len %zu", conn, sys_le16_to_cpu(l2cap_hdr->cid), sys_le16_to_cpu(l2cap_hdr->len));
+
+			if (l2cap_hdr->cid == BT_L2CAP_CID_ATT) {
+				struct bt_att_hdr *att_hdr;
+
+				att_hdr = net_buf_pull_mem(buf, sizeof(*att_hdr));
+				BT_DBG("Failed send code 0x%02x len %zu", att_hdr->code, net_buf_frags_len(buf));
+			}
+
 			net_buf_unref(buf);
 			return -ENOBUFS;
 		}

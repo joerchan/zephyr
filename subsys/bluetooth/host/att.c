@@ -178,8 +178,14 @@ static int chan_send(struct bt_att_chan *chan, struct net_buf *buf,
 		}
 	}
 
-	return bt_l2cap_send_cb(chan->att->conn, BT_L2CAP_CID_ATT, buf,
+	int err = bt_l2cap_send_cb(chan->att->conn, BT_L2CAP_CID_ATT, buf,
 				att_sent, &chan->chan.chan);
+
+	if (err) {
+		BT_ERR("chan send failed 0x%02x", hdr->code);
+	}
+
+	return err;
 }
 
 static void bt_att_sent(struct bt_l2cap_chan *ch)
@@ -378,7 +384,10 @@ static u8_t att_mtu_req(struct bt_att_chan *chan, struct net_buf *buf)
 	rsp = net_buf_add(pdu, sizeof(*rsp));
 	rsp->mtu = sys_cpu_to_le16(mtu_server);
 
-	(void)bt_att_chan_send(chan, pdu, chan_rsp_sent);
+	int err = bt_att_chan_send(chan, pdu, chan_rsp_sent);
+	if (err) {
+		BT_ERR("att failed to send mtu rsp %d", err);
+	}
 
 	/* BLUETOOTH SPECIFICATION Version 4.2 [Vol 3, Part F] page 484:
 	 *
@@ -2830,8 +2839,12 @@ int bt_att_send(struct bt_conn *conn, struct net_buf *buf, bt_conn_tx_cb_t cb,
 	 * cannot be used with a custom user_data.
 	 */
 	if (cb) {
-		bt_l2cap_send_cb(conn, BT_L2CAP_CID_ATT, buf, cb, user_data);
-		return 0;
+		int err = bt_l2cap_send_cb(conn, BT_L2CAP_CID_ATT, buf, cb, user_data);
+		if (err) {
+			BT_ERR("ATT failed to send %d", err);
+		}
+
+		return err;
 	}
 
 	ret = 0;

@@ -1301,7 +1301,16 @@ static struct bt_conn_tx *conn_tx_alloc(void)
 		BT_WARN("Unable to get an immediate free conn_tx");
 	}
 
-	return k_fifo_get(&free_tx, K_FOREVER);
+	u32_t ref = k_uptime_get_32();
+	// struct bt_conn_tx *tx = k_fifo_get(&free_tx, K_SECONDS(20));
+	struct bt_conn_tx *tx = k_fifo_get(&free_tx, K_FOREVER);
+	if (!tx) {
+
+		BT_ERR("k_is_in_isr %d", k_is_in_isr());
+		BT_ERR("conn_tx_alloc timeout %u secs.\n", (k_uptime_get_32() - ref) / MSEC_PER_SEC);
+	}
+
+	return tx;
 }
 
 int bt_conn_send_cb(struct bt_conn *conn, struct net_buf *buf,

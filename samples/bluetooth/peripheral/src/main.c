@@ -226,23 +226,104 @@ static const struct bt_data ad[] = {
 		      0x78, 0x56, 0x34, 0x12, 0x78, 0x56, 0x34, 0x12),
 };
 
+static u32_t write_count;
+static u32_t write_len;
+static u32_t write_rate;
+
+static int write_cmd(struct bt_conn *conn);
+
+static void write_cmd_cb(struct bt_conn *conn, void *user_data)
+{
+	static u32_t cycle_stamp;
+	u32_t delta;
+	u16_t len;
+
+	len = bt_gatt_get_mtu(conn) - 3;
+
+	delta = k_cycle_get_32() - cycle_stamp;
+	delta = k_cyc_to_ns_floor64(delta);
+
+	/* if last data rx-ed was greater than 1 second in the past,
+	 * reset the metrics.
+	 */
+	if (delta > 1000000000) {
+		printk("Write: count= %u, len= %u, rate= %u bps.\n",
+		       write_count, write_len, write_rate);
+
+		write_count = 0U;
+		write_len = 0U;
+		write_rate = 0U;
+		cycle_stamp = k_cycle_get_32();
+	} else {
+		write_count++;
+		write_len += len;
+		write_rate = ((u64_t)write_len << 3) * 1000000000U / delta;
+	}
+}
+
+static int write_cmd(struct bt_conn *conn)
+{
+	u8_t data[244] = {0, };
+	int err;
+
+	err = bt_gatt_write_without_response_cb(conn, 0x0001, data,
+						bt_gatt_get_mtu(conn) - 3,
+						false, write_cmd_cb, NULL);
+	if (err) {
+		printk("Write cmd failed (%d).\n", err);
+	}
+
+	return err;
+}
+
+static struct bt_conn *g_conn;
+
 static void connected(struct bt_conn *conn, uint8_t err)
 {
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+
 	if (err) {
-		printk("Connection failed (err 0x%02x)\n", err);
-	} else {
-		printk("Connected\n");
+		printk("Failed to connect to %s (0x%02x)\n", addr, err);
+		return;
 	}
+
+	printk("Connected: %s\n", addr);
+
+	g_conn = bt_conn_ref(conn);
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
 	printk("Disconnected (reason 0x%02x)\n", reason);
+
+	g_conn = NULL;
+
+	bt_conn_unref(conn);
+}
+
+static bool le_param_req(struct bt_conn *conn, struct bt_le_conn_param *param)
+{
+	printk("LE conn  param req: int (0x%04x, 0x%04x) lat %d to %d\n",
+	       param->interval_min, param->interval_max, param->latency,
+	       param->timeout);
+
+	return true;
+}
+
+static void le_param_updated(struct bt_conn *conn, u16_t interval,
+			     u16_t latency, u16_t timeout)
+{
+	printk("LE conn param updated: int 0x%04x lat %d to %d\n", interval,
+	       latency, timeout);
 }
 
 static struct bt_conn_cb conn_callbacks = {
 	.connected = connected,
 	.disconnected = disconnected,
+	.le_param_req = le_param_req,
+	.le_param_updated = le_param_updated,
 };
 
 static void bt_ready(void)
@@ -335,7 +416,11 @@ void main(void)
 	 * of starting delayed work so we do it here
 	 */
 	while (1) {
-		k_sleep(K_SECONDS(1));
+		k_yield();
+
+		if (g_conn) {
+			write_cmd(g_conn);
+		}
 
 		/* Current Time Service updates only when time is changed */
 		cts_notify();

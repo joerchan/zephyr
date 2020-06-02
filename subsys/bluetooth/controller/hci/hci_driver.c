@@ -75,6 +75,8 @@ static struct net_buf *process_prio_evt(struct node_rx_pdu *node_rx)
 	return NULL;
 }
 
+extern u8_t g_d;
+
 /**
  * @brief Handover from Controller thread to Host thread
  * @details Execution context: Controller thread
@@ -127,6 +129,9 @@ static void prio_recv_thread(void *p1, void *p2, void *p3)
 				 */
 				BT_DBG("RX node enqueue");
 				k_fifo_put(&recv_fifo, node_rx);
+				if (g_d) {
+					printk("\nD5\n");
+				}
 			}
 
 			/* There may still be completed nodes, continue
@@ -361,6 +366,10 @@ static void recv_thread(void *p1, void *p2, void *p3)
 		node_rx = k_fifo_get(&recv_fifo, K_FOREVER);
 #endif
 		BT_DBG("unblocked");
+
+		if (g_d) {
+			printk("\nD6\n");
+		}
 
 		if (node_rx && !buf) {
 			/* process regular node from radio */

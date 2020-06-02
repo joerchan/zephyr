@@ -1758,6 +1758,8 @@ static void conn_cleanup(struct ll_conn *conn, u8_t reason)
 
 	/* Demux and flush Tx PDUs that remain enqueued in thread context */
 	ull_conn_tx_demux(UINT8_MAX);
+
+	printk("\nD0\n");
 }
 
 static void tx_ull_flush(struct ll_conn *conn)
@@ -1774,6 +1776,8 @@ static void tx_ull_flush(struct ll_conn *conn)
 		memq_enqueue(link, tx, &conn->lll.memq_tx.tail);
 	}
 }
+
+u8_t g_d = 0;
 
 static void tx_lll_flush(void *param)
 {
@@ -1820,6 +1824,10 @@ static void tx_lll_flush(void *param)
 	/* Enqueue the terminate towards ULL context */
 	ull_rx_put(link, rx);
 	ull_rx_sched();
+
+	printk("\nD1\n");
+
+	g_d = 1;
 }
 
 #if defined(CONFIG_BT_CTLR_LLID_DATA_START_EMPTY)

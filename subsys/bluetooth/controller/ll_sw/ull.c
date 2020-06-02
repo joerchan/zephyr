@@ -519,6 +519,8 @@ ll_rx_get_again:
 	return cmplt;
 }
 
+extern u8_t g_d;
+
 /**
  * @brief Commit the dequeue from memq_ll_rx, where ll_rx_get() did the peek
  * @details Execution context: Controller thread
@@ -608,6 +610,9 @@ void ll_rx_dequeue(void)
 	break;
 
 	case NODE_RX_TYPE_TERMINATE:
+		if (g_d) {
+			printk("\nD4\n");
+		}
 	case NODE_RX_TYPE_DC_PDU:
 #endif /* CONFIG_BT_CONN */
 
@@ -847,6 +852,11 @@ void ll_rx_mem_release(void **node_rx)
 			conn->lll.link_tx_free = link;
 
 			ll_conn_release(conn);
+
+			if (g_d) {
+				printk("\nD99\n");
+				g_d = 0;
+			}
 		}
 		break;
 #endif /* CONFIG_BT_CONN */
@@ -1471,6 +1481,10 @@ static void rx_demux(void *param)
 {
 	memq_link_t *link;
 
+	if (g_d) {
+		printk("\nD2\n");
+	}
+
 #if !defined(CONFIG_BT_CTLR_LOW_LAT_ULL)
 	do {
 #endif /* CONFIG_BT_CTLR_LOW_LAT_ULL */
@@ -1577,6 +1591,9 @@ static inline int rx_demux_rx(memq_link_t *link, struct node_rx_hdr *rx)
 	break;
 
 	case NODE_RX_TYPE_TERMINATE:
+		if (g_d) {
+			printk("\nD3\n");
+		}
 #endif /* CONFIG_BT_CONN */
 
 #if defined(CONFIG_BT_OBSERVER) || \

@@ -90,6 +90,18 @@ static u8_t discover_func(struct bt_conn *conn,
 			printk("[SUBSCRIBED]\n");
 		}
 
+		memcpy(&uuid, BT_UUID_HRS, sizeof(uuid));
+		discover_params.uuid = &uuid.uuid;
+		discover_params.func = discover_func;
+		discover_params.start_handle = 0x0001;
+		discover_params.end_handle = 0xffff;
+		discover_params.type = BT_GATT_DISCOVER_PRIMARY;
+
+		err = bt_gatt_discover(default_conn, &discover_params);
+		if (err) {
+			printk("Discover failed(err %d)\n", err);
+		}
+
 		return BT_GATT_ITER_STOP;
 	}
 

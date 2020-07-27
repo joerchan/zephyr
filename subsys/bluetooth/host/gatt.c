@@ -1131,6 +1131,9 @@ int bt_gatt_service_unregister(struct bt_gatt_service *svc)
 		return -ENOENT;
 	}
 
+	BT_WARN("Unregister service range %d - %d", svc->attrs[0].handle,
+		    svc->attrs[svc->attr_count - 1].handle);
+
 	sc_indicate(svc->attrs[0].handle,
 		    svc->attrs[svc->attr_count - 1].handle);
 
@@ -1532,6 +1535,8 @@ ssize_t bt_gatt_attr_write_ccc(struct bt_conn *conn,
 		value = sys_get_le16(buf);
 	}
 
+	BT_WARN("write CCC handle %d value %d", attr->handle, value);
+
 	cfg = find_ccc_cfg(conn, ccc);
 	if (!cfg) {
 		/* If there's no existing entry, but the new value is zero,
@@ -1544,7 +1549,7 @@ ssize_t bt_gatt_attr_write_ccc(struct bt_conn *conn,
 
 		cfg = find_ccc_cfg(NULL, ccc);
 		if (!cfg) {
-			BT_WARN("No space to store CCC cfg");
+			BT_WARN("No space to store CCC cfg %d", attr->handle);
 			return BT_GATT_ERR(BT_ATT_ERR_INSUFFICIENT_RESOURCES);
 		}
 
@@ -2323,8 +2328,18 @@ static uint8_t disconnected_cb(const struct bt_gatt_attr *attr, void *user_data)
 			continue;
 		}
 
+		BT_WARN("cfg->id: %d, conn->id: %d", cfg->id, conn->id);
+
+		BT_WARN("cfg->peer %s", bt_addr_le_str(&cfg->peer));
+		BT_WARN("&conn->le.dst %s", bt_addr_le_str(&conn->le.dst));
+
+		BT_WARN("&conn->le.resp_addr %s", bt_addr_le_str(&conn->le.resp_addr));
+		BT_WARN("&conn->le.init_addr %s", bt_addr_le_str(&conn->le.init_addr));
+
 		if (!bt_conn_is_peer_addr_le(conn, cfg->id, &cfg->peer)) {
 			struct bt_conn *tmp;
+			BT_WARN("Not sure what this is");
+
 
 			/* Skip if there is another peer connected */
 			tmp = bt_conn_lookup_addr_le(cfg->id, &cfg->peer);
@@ -2336,15 +2351,18 @@ static uint8_t disconnected_cb(const struct bt_gatt_attr *attr, void *user_data)
 				bt_conn_unref(tmp);
 			}
 		} else {
+			BT_WARN("Check if bonded");
 			/* Clear value if not paired */
 			if (!bt_addr_le_is_bonded(conn->id, &conn->le.dst)) {
 				if (ccc == &sc_ccc) {
 					sc_clear(conn);
 				}
 
+				BT_WARN("Clear ccc of unbonded peer");
 				clear_ccc_cfg(cfg);
 			} else {
 				/* Update address in case it has changed */
+				BT_WARN("Update address of bonded peer");
 				bt_addr_le_copy(&cfg->peer, &conn->le.dst);
 			}
 		}
@@ -4300,7 +4318,7 @@ void bt_gatt_connected(struct bt_conn *conn)
 {
 	struct conn_data data;
 
-	BT_DBG("conn %p", conn);
+	BT_WARN("Connected: conn %p %s", conn, bt_addr_le_str(&conn->le.dst));
 
 	data.conn = conn;
 	data.sec = BT_SECURITY_L1;
@@ -4455,7 +4473,8 @@ static int bt_gatt_store_cf(struct bt_conn *conn)
 
 void bt_gatt_disconnected(struct bt_conn *conn)
 {
-	BT_DBG("conn %p", conn);
+	BT_WARN("Disconnected: conn %p %s", conn, bt_addr_le_str(&conn->le.dst));
+
 	bt_gatt_foreach_attr(0x0001, 0xffff, disconnected_cb, conn);
 
 #if defined(CONFIG_BT_SETTINGS_CCC_STORE_ON_WRITE)

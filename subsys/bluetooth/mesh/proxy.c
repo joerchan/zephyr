@@ -542,7 +542,7 @@ static void proxy_connected(struct bt_conn *conn, uint8_t err)
 	struct bt_mesh_proxy_client *client;
 	int i;
 
-	BT_DBG("conn %p err 0x%02x", conn, err);
+	BT_WARN("conn %p err 0x%02x", conn, err);
 
 	conn_count++;
 
@@ -576,7 +576,7 @@ static void proxy_disconnected(struct bt_conn *conn, uint8_t reason)
 {
 	int i;
 
-	BT_DBG("conn %p reason 0x%02x", conn, reason);
+	BT_WARN("conn %p reason 0x%02x", conn, reason);
 
 	conn_count--;
 
@@ -611,7 +611,7 @@ struct net_buf_simple *bt_mesh_proxy_get_buf(void)
 #if defined(CONFIG_BT_MESH_PB_GATT)
 static void prov_ccc_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
-	BT_DBG("value 0x%04x", value);
+	BT_WARN("value 0x%04x", value);
 }
 
 static ssize_t prov_ccc_write(struct bt_conn *conn,
@@ -619,7 +619,7 @@ static ssize_t prov_ccc_write(struct bt_conn *conn,
 {
 	struct bt_mesh_proxy_client *client;
 
-	BT_DBG("value 0x%04x", value);
+	BT_WARN("value 0x%04x", value);
 
 	if (value != BT_GATT_CCC_NOTIFY) {
 		BT_WARN("Client wrote 0x%04x instead enabling notify", value);

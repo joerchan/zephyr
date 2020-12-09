@@ -1907,9 +1907,45 @@ static void gatt_indicate_rsp(struct bt_conn *conn, uint8_t err,
 	}
 }
 
+static struct bt_att_req *gatt_req_alloc(bt_att_func_t func, void *params,
+		          bt_att_destroy_t destroy)
+{
+	struct bt_att_req *req;
+
+	/* Allocate new request */
+	BT_INFO("Requesting REQ");
+	req = bt_att_req_alloc(BT_ATT_TIMEOUT);
+	if (!req) {
+		BT_DBG("No req");
+		return NULL;
+	}
+
+	BT_INFO("Got Req %p", req);
+
+	req->func = func;
+	req->destroy = destroy;
+	req->user_data = params;
+
+	return req;
+}
+
+static int gatt_req_send(struct bt_conn *conn, struct net_buf *buf,
+			 struct bt_att_req *req)
+{
+	int err;
+
+	req->buf = buf;
+
+	err = bt_att_req_send(conn, req);
+	if (err) {
+		bt_att_req_free(req);
+	}
+
+	return err;
+}
+
 static int gatt_send(struct bt_conn *conn, struct net_buf *buf,
-		     bt_att_func_t func, void *params,
-		     bt_att_destroy_t destroy)
+		     bt_att_func_t func, void *params, bt_att_destroy_t destroy)
 {
 	int err;
 
@@ -1964,6 +2000,15 @@ static int gatt_indicate(struct bt_conn *conn, uint16_t handle,
 		return -EAGAIN;
 	}
 #endif
+	struct bt_att_req *req = NULL;
+
+	if (params->func) {
+		req = gatt_req_alloc(gatt_indicate_rsp, params, NULL);
+
+		if (!req) {
+			return -ENOMEM;
+		}
+	}
 
 	buf = bt_att_create_pdu(conn, BT_ATT_OP_INDICATE,
 				sizeof(*ind) + params->len);
@@ -1980,11 +2025,11 @@ static int gatt_indicate(struct bt_conn *conn, uint16_t handle,
 	net_buf_add(buf, params->len);
 	memcpy(ind->value, params->data, params->len);
 
-	if (!params->func) {
+	if (!req) {
 		return gatt_send(conn, buf, NULL, NULL, NULL);
 	}
 
-	return gatt_send(conn, buf, gatt_indicate_rsp, params, NULL);
+	return gatt_req_send(conn, buf, req);
 }
 
 static uint8_t notify_cb(const struct bt_gatt_attr *attr, uint16_t handle,

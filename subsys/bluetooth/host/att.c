@@ -204,10 +204,10 @@ static int chan_send(struct bt_att_chan *chan, struct net_buf *buf,
 
 	/* Take a ref since bt_l2cap_send_cb takes ownership of the buffer */
 	err = bt_l2cap_send_cb(chan->att->conn, BT_L2CAP_CID_ATT,
-				net_buf_ref(buf), att_cb(chan->sent),
+				buf, att_cb(chan->sent),
 				&chan->chan.chan);
 	if (!err) {
-		net_buf_unref(buf);
+		// net_buf_unref(buf);
 		return 0;
 	}
 
@@ -257,7 +257,7 @@ static int chan_req_send(struct bt_att_chan *chan, struct bt_att_req *req)
 	/* Keep a reference for resending the req in case the security
 	 * needs to be changed.
 	 */
-	err = chan_send(chan, net_buf_ref(req->buf), NULL);
+	err = chan_send(chan, req->buf, NULL);
 	if (err) {
 		/* Drop the extra reference if buffer could not be sent but
 		 * don't reset the buffer as it will likelly be pushed back to
@@ -613,7 +613,7 @@ static uint8_t att_handle_rsp(struct bt_att_chan *chan, void *pdu, uint16_t len,
 
 	/* Release original buffer */
 	if (chan->req->buf) {
-		net_buf_unref(chan->req->buf);
+		// net_buf_unref(chan->req->buf);
 		chan->req->buf = NULL;
 	}
 

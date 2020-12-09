@@ -283,6 +283,13 @@ static void bt_att_sent(struct bt_l2cap_chan *ch)
 
 	atomic_clear_bit(chan->flags, ATT_PENDING_SENT);
 
+	if (!att) {
+		/* Channel has been detached */
+		// return;
+		BT_WARN("ATT channel sent, processing of this is garbage probably");
+		printk("ATT channel sent");
+	}
+
 	/* Process pending requests first since they require a response they
 	 * can only be processed one at time while if other queues were
 	 * processed before they may always contain a buffer starving the
@@ -435,12 +442,6 @@ struct net_buf *bt_att_chan_create_pdu(struct bt_att_chan *chan, uint8_t op,
 	hdr->code = op;
 
 	return buf;
-}
-
-static inline bool att_chan_is_connected(struct bt_att_chan *chan)
-{
-	return (chan->att->conn->state != BT_CONN_CONNECTED ||
-		!atomic_test_bit(chan->flags, ATT_DISCONNECTED));
 }
 
 static int bt_att_chan_send(struct bt_att_chan *chan, struct net_buf *buf,
@@ -2413,8 +2414,14 @@ static int bt_att_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 	}
 
 	hdr = net_buf_pull_mem(buf, sizeof(*hdr));
-	BT_DBG("Received ATT chan %p code 0x%02x len %zu", att_chan, hdr->code,
-	       net_buf_frags_len(buf));
+	BT_DBG("Received ATT chan %p code 0x%02x len %zu conn %p att %p", att_chan, hdr->code,
+	       net_buf_frags_len(buf), att_chan ? att_chan->att->conn : NULL, att_chan->att);
+
+	if (!att_chan->att) {
+		BT_WARN("Received on detached ATT chan");
+		// printk("Received on detached ATT chan");
+		return 0;
+	}
 
 	for (i = 0, handler = NULL; i < ARRAY_SIZE(handlers); i++) {
 		if (hdr->code == handlers[i].op) {
@@ -2666,6 +2673,11 @@ static void bt_att_encrypt_change(struct bt_l2cap_chan *chan,
 
 	BT_DBG("chan %p conn %p handle %u sec_level 0x%02x status 0x%02x", ch,
 	       conn, conn->handle, conn->sec_level, hci_status);
+
+	if (!att_chan->att) {
+		BT_DBG("Ignore encrypt change on detached ATT chan");
+		return;
+	}
 
 	/*
 	 * If status (HCI status of security procedure) is non-zero, notify

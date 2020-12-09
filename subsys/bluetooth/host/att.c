@@ -427,7 +427,17 @@ struct net_buf *bt_att_chan_create_pdu(struct bt_att_chan *chan, uint8_t op,
 	case ATT_RESPONSE:
 	case ATT_CONFIRMATION:
 		/* Use a timeout only when responding/confirming */
+		if (op == BT_ATT_OP_INDICATE) {
+			BT_INFO("Create Indicate PDU");
+		}
+		if (op == BT_ATT_OP_WRITE_RSP) {
+			BT_INFO("Create Write RSP PDU");
+		}
+
 		buf = bt_l2cap_create_pdu_timeout(NULL, 0, BT_ATT_TIMEOUT);
+		if (op == BT_ATT_OP_INDICATE || op == BT_ATT_OP_WRITE_RSP) {
+			BT_INFO("Created buf %p", buf);
+		}
 		break;
 	default:
 		buf = bt_l2cap_create_pdu(NULL, 0);
@@ -2519,6 +2529,8 @@ static void att_reset(struct bt_att *att)
 {
 	struct bt_att_req *req, *tmp;
 	struct net_buf *buf;
+
+	BT_DBG("");
 
 #if CONFIG_BT_ATT_PREPARE_COUNT > 0
 	/* Discard queued buffers */

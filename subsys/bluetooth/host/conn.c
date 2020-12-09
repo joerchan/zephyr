@@ -145,6 +145,22 @@ static void notify_disconnected(struct bt_conn *conn)
 {
 	struct bt_conn_cb *cb;
 
+	BT_INFO("Test1");
+	BT_INFO("Test2");
+	BT_INFO("Test3");
+	BT_INFO("Test4");
+	BT_INFO("Test5");
+	BT_INFO("Test6");
+	BT_INFO("Test7");
+	BT_INFO("Test8");
+	BT_INFO("Test9");
+	BT_INFO("Test10");
+	BT_INFO("Test11");
+	BT_INFO("Test12");
+	BT_INFO("Test13");
+	BT_INFO("Test14");
+	BT_INFO("Test15");
+
 	for (cb = callback_list; cb; cb = cb->_next) {
 		if (cb->disconnected) {
 			cb->disconnected(conn, conn->err);

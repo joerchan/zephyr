@@ -1917,10 +1917,14 @@ static int gatt_send(struct bt_conn *conn, struct net_buf *buf,
 		struct bt_att_req *req;
 
 		/* Allocate new request */
+		BT_INFO("Requesting REQ");
 		req = bt_att_req_alloc(BT_ATT_TIMEOUT);
 		if (!req) {
+			BT_DBG("No req");
 			return -ENOMEM;
 		}
+
+		BT_INFO("Got Req %p", req);
 
 		req->buf = buf;
 		req->func = func;

@@ -273,6 +273,7 @@ struct bt_att_req {
 	struct net_buf *buf;
 #if defined(CONFIG_BT_SMP)
 	bool retrying;
+	uint8_t att_op;
 #endif /* CONFIG_BT_SMP */
 	void *user_data;
 };

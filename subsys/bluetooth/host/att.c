@@ -2717,6 +2717,7 @@ static void bt_att_encrypt_change(struct bt_l2cap_chan *chan,
 	BT_DBG("Retrying");
 
 	/* Resend buffer */
+	bt_gatt_resend(conn, )
 	bt_att_chan_send_rsp(att_chan, att_chan->req->buf,
 			     chan_cb(att_chan->req->buf));
 

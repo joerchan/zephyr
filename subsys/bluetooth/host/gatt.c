@@ -1908,7 +1908,7 @@ static void gatt_indicate_rsp(struct bt_conn *conn, uint8_t err,
 }
 
 static struct bt_att_req *gatt_req_alloc(bt_att_func_t func, void *params,
-		          bt_att_destroy_t destroy)
+		          bt_att_destroy_t destroy, uint8_t op)
 {
 	struct bt_att_req *req;
 
@@ -1922,6 +1922,7 @@ static struct bt_att_req *gatt_req_alloc(bt_att_func_t func, void *params,
 
 	BT_INFO("Got Req %p", req);
 
+	req->att_op = op;
 	req->func = func;
 	req->destroy = destroy;
 	req->user_data = params;
@@ -1982,6 +1983,11 @@ static int gatt_send(struct bt_conn *conn, struct net_buf *buf,
 	return err;
 }
 
+int gatt_resend(struct bt_conn *conn)
+{
+	
+}
+
 static int gatt_indicate(struct bt_conn *conn, uint16_t handle,
 			 struct bt_gatt_indicate_params *params)
 {
@@ -2003,7 +2009,8 @@ static int gatt_indicate(struct bt_conn *conn, uint16_t handle,
 	struct bt_att_req *req = NULL;
 
 	if (params->func) {
-		req = gatt_req_alloc(gatt_indicate_rsp, params, NULL);
+		req = gatt_req_alloc(gatt_indicate_rsp, params, NULL,
+				     BT_ATT_OP_INDICATE);
 
 		if (!req) {
 			return -ENOMEM;

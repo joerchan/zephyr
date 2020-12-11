@@ -120,10 +120,6 @@ static void att_req_destroy(struct bt_att_req *req)
 		net_buf_unref(req->buf);
 	}
 
-	if (req->destroy) {
-		req->destroy(req);
-	}
-
 	bt_att_req_free(req);
 }
 

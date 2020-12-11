@@ -41,11 +41,11 @@ BT_GATT_SERVICE_DEFINE(service,
 		       BT_GATT_PRIMARY_SERVICE(&service_uuid),
 		       BT_GATT_CHARACTERISTIC(&characteristic_uuid.uuid,
 					      BT_GATT_CHRC_INDICATE,
-					      BT_GATT_PERM_READ,
+					      BT_GATT_PERM_READ | BT_GATT_PERM_READ_AUTHEN,
 					      NULL, NULL, NULL),
 		       BT_GATT_CCC_MANAGED(((struct _bt_gatt_ccc[])
 					    { BT_GATT_CCC_INITIALIZER(NULL, ccc_written, NULL) }),
-					   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE)
+					   BT_GATT_PERM_READ | BT_GATT_PERM_WRITE | BT_GATT_PERM_WRITE_AUTHEN)
 		       );
 
 static ssize_t ccc_written(struct bt_conn *conn,

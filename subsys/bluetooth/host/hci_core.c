@@ -6532,6 +6532,55 @@ static void hci_rx_thread(void)
 }
 #endif /* !CONFIG_BT_RECV_IS_RX_THREAD */
 
+#include <nrf.h>
+static void debug_write_addr(uint8_t *address)
+{
+	uint8_t region = 0;
+
+	NRF_MWU->REGION[region].START = (uint32_t)address;
+	NRF_MWU->REGION[region].END = ((uint32_t)address) + 1;
+	NRF_MWU->REGIONENSET = 1 << (region*2);
+
+	NRF_MWU->INTENSET = 1 << (region * 2);
+}
+
+static void C_mwu_isr(uint32_t *sp)
+{
+	uint32_t pc;
+	uint8_t region = 0;
+
+	/* Extract the stacked PC using the given stack pointer */
+	pc = sp[6];
+
+	if (NRF_MWU->EVENTS_REGION[region].WA) {
+		uint8_t *address = (uint8_t *)NRF_MWU->REGION[region].START;
+
+		BT_ERR("Address %u", *address);
+
+		BT_ERR("MWU write %d stacked PC: 0x%x", *address, pc);
+		NRF_MWU->EVENTS_REGION[region].WA = 0;
+	}
+}
+
+void mwu_isr(void)
+{
+	if ((uint32_t)__builtin_return_address(0) == 0xFFFFFFFDUL) {
+		C_mwu_isr((uint32_t*)__get_PSP());
+	} else {
+		C_mwu_isr((uint32_t*)__get_MSP());
+	}
+}
+
+void bt_buf_debug(void)
+{
+	struct net_buf *num_complete_buf = &net_buf_num_complete_pool[0];
+
+	debug_write_addr(&num_complete_buf->pool_id);
+
+	IRQ_DIRECT_CONNECT(MWU_IRQn, 0, mwu_isr, 0);
+	irq_enable(MWU_IRQn);
+}
+
 int bt_enable(bt_ready_cb_t cb)
 {
 	int err;
@@ -6555,7 +6604,7 @@ int bt_enable(bt_ready_cb_t cb)
 	}
 
 	ready_cb = cb;
-
+	bt_buf_debug();
 	/* TX thread */
 	k_thread_create(&tx_thread_data, tx_thread_stack,
 			K_KERNEL_STACK_SIZEOF(tx_thread_stack),

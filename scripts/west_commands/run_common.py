@@ -7,7 +7,7 @@
 
 import argparse
 import logging
-from os import close, getcwd, path, fspath
+from os import close, getcwd, path, fspath, environ
 from pathlib import Path
 from subprocess import CalledProcessError
 import sys
@@ -90,6 +90,8 @@ def add_parser_common(command, parser_adder=None, parser=None):
 
     group.add_argument('-d', '--build-dir', metavar='DIR',
                        help='application build directory')
+
+    parser.add_argument('-b', '--board', help='board to build for')
     # still supported for backwards compatibility, but questionably
     # useful now that we do everything with runners.yaml
     group.add_argument('-c', '--cmake-cache', metavar='FILE',
@@ -234,6 +236,24 @@ def do_run_common(command, user_args, user_runner_args):
             log.err('verbose mode enabled, dumping stack:', fatal=True)
             raise
 
+def config_get(option, fallback):
+    return config.get('build', option, fallback=fallback)
+
+def _find_board(args):
+    board, origin = None, None
+    config_board = config.get('build', 'board', fallback='never')
+    # config_board = config_get('board', None)
+    # if self.cmake_cache:
+    #     board, origin = (self.cmake_cache.get('CACHED_BOARD'),
+    #                      'CMakeCache.txt')
+    if args.board:
+        board, origin = args.board, 'command line'
+    elif 'BOARD' in environ:
+        board, origin = environ['BOARD'], 'env'
+    elif config_board is not None:
+        board, origin = config_board, 'configfile'
+    return board, origin
+
 def get_build_dir(args, die_if_none=True):
     # Get the build directory for the given argument list and environment.
     if args.build_dir:
@@ -241,7 +261,14 @@ def get_build_dir(args, die_if_none=True):
 
     guess = config.get('build', 'guess-dir', fallback='never')
     guess = guess == 'runners'
-    dir = find_build_dir(None, guess)
+
+    board, _ = _find_board(args)
+    # source_dir = _find_source_dir()
+    # app = os.path.split(source_dir)[1]
+    source_dir = None
+    app = None
+    dir = find_build_dir(args.build_dir, board=board,
+                         source_dir=source_dir, app=app)
 
     if dir and is_zephyr_build(dir):
         return dir

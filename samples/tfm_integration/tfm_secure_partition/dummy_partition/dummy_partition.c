@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2021 Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <psa/crypto.h>
 #include <stdbool.h>
@@ -56,6 +61,8 @@ static psa_status_t tfm_dp_secret_digest(uint32_t secret_index,
 	}
 
 	callback(handle, digest, digest_size);
+
+	return PSA_SUCCESS;
 }
 
 #ifndef TFM_PSA_API

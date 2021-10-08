@@ -9,13 +9,13 @@ cmake_minimum_required(VERSION 3.13.1)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 configure_file(
-  ${CMAKE_CURRENT_LIST_DIR}/dummy_partition/tfm_manifest_list.yaml
+  ${CMAKE_CURRENT_LIST_DIR}/dummy_partition/tfm_manifest_list.yaml.in
   ${CMAKE_CURRENT_BINARY_DIR}/dummy_partition/tfm_manifest_list.yaml)
 
 set_property(TARGET zephyr_property_target
   APPEND PROPERTY TFM_CMAKE_OPTIONS
-  -DTFM_EXTRA_MANIFEST_LIST_PATH=${CMAKE_CURRENT_BINARY_DIR}/dummy_partition/tfm_manifest_list.yaml
-  -DTFM_EXTRA_PARTITION_CMAKE_PATH=${CMAKE_CURRENT_LIST_DIR}/dummy_partition
+  -DTFM_EXTRA_MANIFEST_LIST_FILES=${CMAKE_CURRENT_BINARY_DIR}/dummy_partition/tfm_manifest_list.yaml
+  -DTFM_EXTRA_PARTITION_PATHS=${CMAKE_CURRENT_LIST_DIR}/dummy_partition
   )
 
 project(tfm_secure_partition)

@@ -65,7 +65,7 @@ psa_status_t dp_secret_digest(uint32_t secret_index,
 
 
 #endif
-
+#include "nrf.h"
 void main(void)
 {
 	uint8_t digest[32];
@@ -83,4 +83,11 @@ void main(void)
 			printk("\n");
 		}
 	}
+
+	printk("Attempting to access secure peripheral\n");
+
+	NRF_TIMER2->TASKS_COUNT = 1;
+	NRF_TIMER2->TASKS_CAPTURE[0] = 1;
+
+	printk("Timer CC: %d\n", NRF_TIMER2->CC[0]);
 }

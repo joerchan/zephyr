@@ -10,24 +10,34 @@
 #include "tfm_secure_api.h"
 #include "tfm_api.h"
 
+#include "nrf.h"
+#include "spu.h"
+
 static psa_status_t tfm_dp_init(void)
 {
+	spu_peripheral_config_secure((uint32_t)NRF_TIMER2, true);
+
+	NRF_TIMER2->TASKS_STOP = 1;
+	NRF_TIMER2->TASKS_CLEAR = 1;
+	NRF_TIMER2->MODE = (TIMER_MODE_MODE_Counter << TIMER_MODE_MODE_Pos);
+	NRF_TIMER2->TASKS_START = 1;
+
 	return TFM_SUCCESS;
 }
 
 #define NUM_SECRETS 5
 
-struct dp_secret {
-	uint8_t secret[16];
-};
+// struct dp_secret {
+// 	uint8_t secret[16];
+// };
 
-struct dp_secret secrets[NUM_SECRETS] = {
-	{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
-	{{1,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
-	{{2,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
-	{{3,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
-	{{4,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
-};
+// struct dp_secret secrets[NUM_SECRETS] = {
+// 	{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
+// 	{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
+// 	{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
+// 	{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
+// 	{{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15}},
+// };
 
 typedef void (*psa_write_callback_t)(void *handle, uint8_t *digest,
 				uint32_t digest_size);
@@ -36,7 +46,7 @@ static psa_status_t tfm_dp_secret_digest(uint32_t secret_index,
 			size_t digest_size, size_t *p_digest_size,
 			psa_write_callback_t callback, void *handle)
 {
-	uint8_t digest[32];
+	uint8_t digest[32], secret[16];
 	psa_status_t status;
 
 	/* Check that secret_index is valid. */
@@ -49,8 +59,20 @@ static psa_status_t tfm_dp_secret_digest(uint32_t secret_index,
 		return PSA_ERROR_INVALID_ARGUMENT;
 	}
 
-	status = psa_hash_compute(PSA_ALG_SHA_256, secrets[secret_index].secret,
-				sizeof(secrets[secret_index].secret), digest,
+	secret[0] = (uint8_t)secret_index;
+
+	NRF_TIMER2->TASKS_CLEAR = 1;
+	for (int i = 1; i < sizeof(secret); i++)
+	{
+		NRF_TIMER2->TASKS_COUNT = 1;
+		NRF_TIMER2->TASKS_CAPTURE[0] = 1;
+		secret[i] = NRF_TIMER2->CC[0];
+
+		// secret[i] = i;
+	}
+
+	status = psa_hash_compute(PSA_ALG_SHA_256, secret,
+				sizeof(secret), digest,
 				digest_size, p_digest_size);
 
 	if (status != PSA_SUCCESS) {

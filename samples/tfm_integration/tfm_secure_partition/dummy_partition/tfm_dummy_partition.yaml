@@ -37,6 +37,21 @@
    }
   ],
 
+  "mmio_regions": [
+    {
+      "name": "TFM_PERIPHERAL_TIMER2",
+      "permission": "READ-WRITE"
+    }
+  ],
+  # "irqs": [
+  #   {
+  #     "source": "TFM_TIMER0_IRQ",
+  #     "name": "TFM_TIMER0_IRQ",
+  #     "handling": "FLIH",
+  #     "tfm_irq_priority": 64,
+  #   }
+  # ]
+
   "dependencies": [
     "TFM_CRYPTO"
   ]

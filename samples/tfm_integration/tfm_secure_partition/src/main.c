@@ -8,6 +8,8 @@
 #include <tfm_veneers.h>
 #include <tfm_ns_interface.h>
 
+#include <arm_cmse.h>
+// #include "nrf.h"
 #ifndef CONFIG_TFM_IPC
 psa_status_t dp_secret_digest(uint32_t secret_index,
 			void *p_digest,
@@ -66,6 +68,7 @@ psa_status_t dp_secret_digest(uint32_t secret_index,
 
 #endif
 #include "nrf.h"
+#include "hal/nrf_gpio.h"
 void main(void)
 {
 	uint8_t digest[32];
@@ -84,10 +87,66 @@ void main(void)
 		}
 	}
 
-	printk("Attempting to access secure peripheral\n");
+	// printk("Accessing GPIOT0\n");
+	// NRF_GPIOTE0_S->CONFIG[0] =
+        //         (GPIOTE_CONFIG_POLARITY_Toggle << GPIOTE_CONFIG_POLARITY_Pos) |
+        //         (0 << GPIOTE_CONFIG_PSEL_Pos) |
+        //         (GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos) |
+        //         (0 << GPIOTE_CONFIG_OUTINIT_Pos);
+	// printk("Accessed GPIOTE0\n");
 
-	NRF_TIMER2->TASKS_COUNT = 1;
-	NRF_TIMER2->TASKS_CAPTURE[0] = 1;
+	printk("Accessing GPIOTE1\n");
+	NRF_GPIOTE1->CONFIG[0] =
+                (GPIOTE_CONFIG_POLARITY_Toggle << GPIOTE_CONFIG_POLARITY_Pos) |
+                (0 << GPIOTE_CONFIG_PSEL_Pos) |
+                (GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos) |
+                (0 << GPIOTE_CONFIG_OUTINIT_Pos);
+	printk("Accessed GPIOTE1\n");
 
-	printk("Timer CC: %d\n", NRF_TIMER2->CC[0]);
+	// printk("Attempting to access secure peripheral\n");
+
+	// NRF_TIMER2->TASKS_COUNT = 1;
+	// NRF_TIMER2->TASKS_CAPTURE[0] = 1;
+	// printk("Timer CC: %d\n", NRF_TIMER2->CC[0]);
+
+	// volatile uint32_t ready = NRF_NVMC->READY;
+	// printk("Accessed NVMC ready %u\n", ready);
+	// volatile uint32_t config = NRF_NVMC->CONFIG;
+	// printk("Accessed NVMC config %u\n", config);
+
+	NRF_NVMC_NS->CONFIGNS = 1;
+	printk("NS: Enable Write\n");
+
+	NRF_NVMC_NS->CONFIGNS = 0;
+	printk("NS: Disable Write\n");
+
+
+	NRF_NVMC_NS->CONFIG = 1;
+	printk("S: Enable Write\n");
+
+	NRF_NVMC_NS->CONFIG = 0;
+	printk("S: Disable Write\n");
+
+#define PIN_XL1 0
+#define PIN_XL2 1
+
+	printk("NRF_P0->PCNF[0] %d\n", NRF_P0->PIN_CNF[0]);
+	printk("NRF_P0->PCNF[1] %d\n", NRF_P0->PIN_CNF[1]);
+
+    	nrf_gpio_pin_mcu_select(PIN_XL1, NRF_GPIO_PIN_MCUSEL_PERIPHERAL);
+    	nrf_gpio_pin_mcu_select(PIN_XL2, NRF_GPIO_PIN_MCUSEL_PERIPHERAL);
+
+	printk("NRF_P0->PCNF[0] %d\n", NRF_P0->PIN_CNF[0]);
+	printk("NRF_P0->PCNF[1] %d\n", NRF_P0->PIN_CNF[1]);
+
+	printk("NRF_P0->PCNF[2] %d\n", NRF_P0->PIN_CNF[2]);
+    	NRF_P0->PIN_CNF[2] = 0x01;
+	printk("NRF_P0->PCNF[2] %d\n", NRF_P0->PIN_CNF[2]);
+
+
+	printk("NRF_P1->PCNF[2] %d\n", NRF_P1->PIN_CNF[2]);
+    	NRF_P1->PIN_CNF[2] = 0x01;
+	printk("NRF_P1->PCNF[2] %d\n", NRF_P1->PIN_CNF[2]);
+
+	printk("GPIO->PIN_CNF accessed\n");
 }

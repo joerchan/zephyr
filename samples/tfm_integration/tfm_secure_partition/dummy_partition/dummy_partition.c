@@ -13,14 +13,53 @@
 #include "nrf.h"
 #include "spu.h"
 
+#include "hal/nrf_gpio.h"
+
 static psa_status_t tfm_dp_init(void)
 {
-	spu_peripheral_config_secure((uint32_t)NRF_TIMER2, true);
+	ERROR_MSG("Accessing GPIOT0\n");
+	NRF_GPIOTE0_S->CONFIG[0] =
+                (GPIOTE_CONFIG_POLARITY_Toggle << GPIOTE_CONFIG_POLARITY_Pos) |
+                (0 << GPIOTE_CONFIG_PSEL_Pos) |
+                (GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos) |
+                (0 << GPIOTE_CONFIG_OUTINIT_Pos);
+	ERROR_MSG("Accessed GPIOTE0\n");
+
+	ERROR_MSG("Accessing GPIOTE1\n");
+	NRF_GPIOTE1_NS->CONFIG[0] =
+                (GPIOTE_CONFIG_POLARITY_Toggle << GPIOTE_CONFIG_POLARITY_Pos) |
+                (0 << GPIOTE_CONFIG_PSEL_Pos) |
+                (GPIOTE_CONFIG_MODE_Task << GPIOTE_CONFIG_MODE_Pos) |
+                (0 << GPIOTE_CONFIG_OUTINIT_Pos);
+	ERROR_MSG("Accessed GPIOTE1\n");
+
+	SPMLOG_ERRMSGVAL("NRF_P0->PCNF[2] = ", NRF_P0->PIN_CNF[2]);
+    	// nrf_gpio_pin_mcu_select(2, NRF_GPIO_PIN_MCUSEL_PERIPHERAL);
+	SPMLOG_ERRMSGVAL("NRF_P0->PCNF[2] = ", NRF_P0->PIN_CNF[2]);
+
+
+	// cmse_address_info_t addInfo = cmse_TT((void*)NRF_FICR_S->INFO.CONFIGID);
+	// printk("NRF_FICR->CONFIGID", cmse_TT(NRF_FICR_>INFO.CONFIGID).;
+
+	SPMLOG_ERRMSG("address info FICR CONFIGID\n");
+	SPMLOG_ERRMSGVAL("mpu_region: ", addInfo.flags.mpu_region);
+	SPMLOG_ERRMSGVAL("sau_region: ", addInfo.flags.sau_region);
+	SPMLOG_ERRMSGVAL("mpu_region_valid: ", addInfo.flags.mpu_region_valid);
+	SPMLOG_ERRMSGVAL("sau_region_valid: ", addInfo.flags.sau_region_valid);
+	SPMLOG_ERRMSGVAL("read_ok: ", addInfo.flags.read_ok);
+	SPMLOG_ERRMSGVAL("readwrite_ok: ", addInfo.flags.readwrite_ok);
+	SPMLOG_ERRMSGVAL("secure: ", addInfo.flags.secure);
+	SPMLOG_ERRMSGVAL("idau_region_valid: ", addInfo.flags.idau_region_valid);
+	SPMLOG_ERRMSGVAL("idau_region: ", addInfo.flags.idau_region);
+
+	// spu_peripheral_config_secure((uint32_t)NRF_TIMER2, true);
 
 	NRF_TIMER2->TASKS_STOP = 1;
 	NRF_TIMER2->TASKS_CLEAR = 1;
 	NRF_TIMER2->MODE = (TIMER_MODE_MODE_Counter << TIMER_MODE_MODE_Pos);
 	NRF_TIMER2->TASKS_START = 1;
+
+
 
 	return TFM_SUCCESS;
 }

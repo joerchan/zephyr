@@ -17,7 +17,6 @@
       "manifest": "${ZEPHYR_BASE}/samples/tfm_integration/tfm_secure_partition/dummy_partition/tfm_dummy_partition.yaml",
       "source_path": "${ZEPHYR_BASE}/samples/tfm_integration",
       "tfm_partition_ipc": true,
-      "conditional": "TFM_PARTITION_DUMMY_PARTITION",
       "version_major": 0,
       "version_minor": 1,
       "linker_pattern": {

@@ -57,6 +57,7 @@ static void remoteproc_mgr_config(void)
 static int remoteproc_mgr_boot(const struct device *dev)
 {
 	ARG_UNUSED(dev);
+	printk("Remote PRoc MGR boot");
 
 #if !defined(CONFIG_TRUSTED_EXECUTION_NONSECURE)
 	/* Secure domain may configure permissions for the Network MCU. */
@@ -73,10 +74,9 @@ static int remoteproc_mgr_boot(const struct device *dev)
 
 	/* Release the Network MCU, 'Release force off signal' */
 	NRF_RESET->NETWORK.FORCEOFF = RESET_NETWORK_FORCEOFF_FORCEOFF_Release;
-
-	LOG_DBG("Network MCU released.");
+	LOG_ERR("Network MCU released.");
+	printk("Network MCU released");
 #endif /* !CONFIG_TRUSTED_EXECUTION_SECURE */
-
 	return 0;
 }
 

@@ -602,6 +602,12 @@ include(${ZEPHYR_BASE}/cmake/target_toolchain_flags.cmake)
 set(PROJECT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/zephyr)
 set(PROJECT_SOURCE_DIR ${ZEPHYR_BASE})
 
+# Set TFM_BINARY_DIR. Has to be included before boards are included as some
+# boards need to define TFM build rules on the output files.
+if(CONFIG_BUILD_WITH_TFM)
+  set(TFM_BINARY_DIR ${CMAKE_BINARY_DIR}/tfm)
+endif()
+
 set(KERNEL_NAME ${CONFIG_KERNEL_BIN_NAME})
 
 set(KERNEL_ELF_NAME   ${KERNEL_NAME}.elf)

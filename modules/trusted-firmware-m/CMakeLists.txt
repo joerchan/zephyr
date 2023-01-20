@@ -31,7 +31,6 @@ set(TFM_CRYPTO_MODULES
 
 
 if (CONFIG_BUILD_WITH_TFM)
-  list(APPEND TFM_CMAKE_ARGS -DTFM_LIB_MODEL=OFF)
   # PSA API awareness for the Non-Secure application
   target_compile_definitions(app PRIVATE "TFM_PSA_API")
   if (CONFIG_TFM_SFN)
@@ -143,13 +142,13 @@ if (CONFIG_BUILD_WITH_TFM)
 
   # Enable TFM crypto modules as specified in Kconfig
   foreach(module ${TFM_CRYPTO_MODULES})
+    # TODO: These appears to not be in cmake anymore, needs to be set in header file or integrate with TF-M Kconfig???
     if (CONFIG_TFM_${module}_ENABLED)
-      # list(APPEND TFM_ENABLED_CRYPTO_MODULES_ARG ${module})
       set(val "FALSE")
     else()
       set(val "TRUE")
     endif()
-    list(APPEND TFM_CMAKE_ARGS -D${module}_DISABLED=${val})
+    # list(APPEND TFM_CMAKE_ARGS -D${module}_ENABLED=${val})
   endforeach()
 
   set(TFM_BINARY_DIR ${CMAKE_BINARY_DIR}/tfm)
@@ -250,18 +249,14 @@ if (CONFIG_BUILD_WITH_TFM)
     list(APPEND TFM_CMAKE_ARGS -DMCUBOOT_DATA_SHARING=ON)
   endif()
 
-  if(TFM_PSA_TEST_SUITE)
-    list(APPEND TFM_CMAKE_ARGS
-      -DPSA_TOOLCHAIN_FILE=${CMAKE_CURRENT_LIST_DIR}/psa/GNUARM.cmake
-      -DTOOLCHAIN=INHERIT
-      )
-  endif()
-
   if(CONFIG_FPU AND CONFIG_FP_HARDABI)
-    list(APPEND TFM_CMAKE_ARGS -DCONFIG_TFM_FP=hard)
+    list(APPEND TFM_CMAKE_ARGS -DCONFIG_TFM_ENABLE_FP=ON)
+    # TODO: Update CONFIG_TFM_FP to what is used in TF-M now.
+    # list(APPEND TFM_CMAKE_ARGS -DCONFIG_TFM_FLOAT_ABI=hard)
     list(APPEND TFM_CMAKE_ARGS -DCONFIG_TFM_FP_ARCH=${FPU_FOR_${GCC_M_CPU}})
   else()
-    list(APPEND TFM_CMAKE_ARGS -DCONFIG_TFM_FP=soft)
+    # list(APPEND TFM_CMAKE_ARGS -DCONFIG_TFM_FLOAT_ABI=soft)
+    list(APPEND TFM_CMAKE_ARGS -DCONFIG_TFM_ENABLE_FP=OFF)
   endif()
 
   file(MAKE_DIRECTORY ${TFM_BINARY_DIR})
@@ -432,15 +427,32 @@ if (CONFIG_BUILD_WITH_TFM)
       # mcuboot is preferred over system imgtool
       ${CMAKE_COMMAND} -E env PYTHONPATH=${ZEPHYR_MCUBOOT_MODULE_DIR}/scripts
       ${PYTHON_EXECUTABLE} ${TFM_MCUBOOT_DIR}/scripts/wrapper/wrapper.py
+      -v ${CONFIG_TFM_IMAGE_VERSION_${SUFFIX}}
       --layout ${PREPROCESSED_FILE_${SUFFIX}}
       -k ${CONFIG_TFM_KEY_FILE_${SUFFIX}}
       --public-key-format ${TFM_PUBLIC_KEY_FORMAT}
       --align 1
-      -v ${CONFIG_TFM_IMAGE_VERSION_${SUFFIX}}
       ${pad_args}
       ${HEX_ADDR_ARGS_${SUFFIX}}
       ${ADD_${SUFFIX}_IMAGE_MIN_VER}
       -s auto
+      --measured-boot-record
+
+      #-s ${MCUBOOT_SECURITY_COUNTER_${SUFFIX}}
+      #-L ${MCUBOOT_ENC_KEY_LEN}
+      #$<$<STREQUAL:${MCUBOOT_UPGRADE_STRATEGY},OVERWRITE_ONLY>:--overwrite-only>
+      #$<$<BOOL:${MCUBOOT_CONFIRM_IMAGE}>:--confirm>
+      #$<$<BOOL:${MCUBOOT_ENC_IMAGES}>:-E${MCUBOOT_KEY_ENC}>
+      #$<$<BOOL:${MCUBOOT_MEASURED_BOOT}>:--measured-boot-record>
+
+      #-s auto
+      # -s 1
+      # -L 128
+      #-d \"(1,0.0.0+0)\"
+      #--overwrite-only
+
+      #--measured-boot-record
+
       -H ${CONFIG_ROM_START_OFFSET}
       ${INPUT_FILE}
       ${OUTPUT_FILE}

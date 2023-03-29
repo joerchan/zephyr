@@ -21,6 +21,16 @@ config PSA_WANT_ALG_HMAC_DRBG
 
 endmenu # RNG support
 
+
+config PSA_USE_CTR_DRBG_DRIVER
+	bool
+	prompt "PSA RNG using CTR_DRBG_DRIVER"
+
+config PSA_USE_HMAC_DRBG_DRIVER
+	bool
+	prompt "PSA RNG using HMAC_DRBG_DRIVER"
+
+
 config PSA_HAS_KEY_SUPPORT
 	bool
 	default y
@@ -190,12 +200,12 @@ config PSA_WANT_ALG_SHA_512
 config PSA_WANT_ALG_RIPEMD160
 	bool
 	prompt "PSA RIPEMD160 support" if !PSA_PROMPTLESS
-	default y if !PSA_DEFAULT_OFF
+	# default y if !PSA_DEFAULT_OFF
 
 config PSA_WANT_ALG_MD5
 	bool
 	prompt "PSA MD5 support" if !PSA_PROMPTLESS
-	default y if !PSA_DEFAULT_OFF
+	# default y if !PSA_DEFAULT_OFF
 
 endmenu # PSA Hash support
 
@@ -233,7 +243,7 @@ config PSA_WANT_ALG_CBC_PKCS7
 config PSA_WANT_ALG_CFB
 	bool
 	prompt "PSA AES CFB support" if !PSA_PROMPTLESS
-	default y if !PSA_DEFAULT_OFF
+	# default y if !PSA_DEFAULT_OFF
 
 config PSA_WANT_ALG_CTR
 	bool
@@ -243,7 +253,7 @@ config PSA_WANT_ALG_CTR
 config PSA_WANT_ALG_OFB
 	bool
 	prompt "PSA AES OFB mode support" if !PSA_PROMPTLESS
-	default y if !PSA_DEFAULT_OFF
+	# default y if !PSA_DEFAULT_OFF
 
 config PSA_WANT_ALG_XTS
 	bool
